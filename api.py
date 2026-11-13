@@ -206,17 +206,24 @@ class Telemetry(BaseModel):
     v_avg: Optional[float] = None
     ma_avg: Optional[float] = None
     spread: Optional[float] = Field(None, description="Std-dev of the current over the 3 s window, mA")
+    ldr: Optional[List[Optional[float]]] = Field(None, description="Raw ADC value of each LDR, in the order of data/sensors.json")
+    temp_c: Optional[float] = Field(None, description="Panel temperature, only if a sensor really reports it")
 
 
 _telemetry = {}       # node_id -> deque of the last 900 readings (15 min at 1 Hz)
 _tele_meta = {}       # node_id -> latest raw line / state / rolling average
 
 
+def _rate(rows, now):
+    recent = [r["ts"] for r in rows if now - r["ts"] <= 10]
+    return round((len(recent) - 1) / (recent[-1] - recent[0]), 2) if len(recent) > 2 and recent[-1] > recent[0] else 0.0
+
+
 @app.post("/telemetry")
 def post_telemetry(t: Telemetry):
     with _lock:
         _telemetry.setdefault(t.node_id, collections.deque(maxlen=900)).append(
-            dict(ts=time.time(), source=t.source, v=t.v, ma=t.ma))
+            dict(ts=time.time(), source=t.source, v=t.v, ma=t.ma, state=t.state, ldr=t.ldr, temp_c=t.temp_c))
         _tele_meta[t.node_id] = dict(raw=t.raw, state=t.state, settled=t.settled, v_avg=t.v_avg,
                                      ma_avg=t.ma_avg, spread=t.spread, ts=time.time())
     return dict(ok=True)
@@ -228,9 +235,7 @@ def get_telemetry(node_id: str = "SN-001"):
         rows = list(_telemetry.get(node_id, ()))
         meta = dict(_tele_meta.get(node_id, {}))
     now = time.time()
-    recent = [r["ts"] for r in rows if now - r["ts"] <= 10]
-    rate = (len(recent) - 1) / (recent[-1] - recent[0]) if len(recent) > 2 and recent[-1] > recent[0] else 0.0
-    return dict(node_id=node_id, now=now, readings=rows, meta=meta, rate=round(rate, 2))
+    return dict(node_id=node_id, now=now, readings=rows, meta=meta, rate=_rate(rows, now))
 
 
 # ---------------------------------------------------------------- real bench (Isc / Voc against a baseline)
@@ -320,6 +325,20 @@ def bench_point(p: BenchPoint):
     return dict(ok=True)
 
 
+def _ldr_mean(node, now, secs=3.0):
+    """Mean raw value of each LDR over the last few seconds (None where a sensor reported nothing)."""
+    with _lock:
+        rows = [r for r in _telemetry.get(node, ()) if now - r["ts"] <= secs and r.get("ldr")]
+    if not rows:
+        return None
+    n = max(len(r["ldr"]) for r in rows)
+    out = []
+    for i in range(n):
+        vals = [r["ldr"][i] for r in rows if i < len(r["ldr"]) and r["ldr"][i] is not None]
+        out.append(sum(vals) / len(vals) if vals else None)
+    return out
+
+
 @app.post("/bench/baseline")
 def bench_baseline(r: BaselineReq):
     """Store the latest settled Isc (jumper on) and Voc (jumper off) as the healthy baseline."""
@@ -328,7 +347,7 @@ def bench_baseline(r: BaselineReq):
     sh, op = st.get("short"), st.get("open")
     if not sh or not op or now - sh["ts"] > STALE_S or now - op["ts"] > STALE_S:
         raise HTTPException(409, "need_points")
-    data = dict(isc_ma=sh["ma"], voc_v=op["v"])
+    data = dict(isc_ma=sh["ma"], voc_v=op["v"], ldr_base=_ldr_mean(r.node_id, now))
     eid = _event(r.node_id, "baseline", data, now)
     with _lock:
         st["fresh"].clear()
@@ -402,8 +421,26 @@ WEB = os.path.join(ROOT, "web")
 
 
 @app.get("/", include_in_schema=False)
+def owner_page():
+    """Owner view: Digital Twin & Health."""
+    return FileResponse(os.path.join(WEB, "twin.html"))
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    from fastapi.responses import Response
+    return Response(status_code=204)
+
+
+@app.get("/console", include_in_schema=False)
 def console():
+    """Installer view: the diagnostic console."""
     return FileResponse(os.path.join(WEB, "index.html"))
+
+
+from fastapi.staticfiles import StaticFiles
+os.makedirs(os.path.join(WEB, "vendor"), exist_ok=True)
+app.mount("/vendor", StaticFiles(directory=os.path.join(WEB, "vendor")), name="vendor")
 
 
 @app.get("/static/plotly.min.js", include_in_schema=False)
@@ -455,6 +492,175 @@ def benchmark():
     b["n_train"] = bun.get("n_train")
     b["trained_on"] = bun.get("trained_on")
     return b
+
+
+# ---------------------------------------------------------------- owner view: Digital Twin & Health
+from sn import calib, health, profile as PROFILE, realdx, sensors as SENSORS, twin as TWIN
+
+_session = collections.deque(maxlen=3600)      # (ts, score, light_pct) sampled by the watcher, for trend and session chart
+_alert_log = {}                                # level -> last alert time (max one per 60 s per level)
+_level = dict(shown=None)                      # state currently shown (hysteresis is applied against it)
+NODE = "SN-001"
+
+
+def _twin_ctx(tariff=C.DEFAULT_TARIFF, yld=C.DEFAULT_YIELD, kwp=C.DEFAULT_KWP):
+    now = time.time()
+    with _lock:
+        rows = list(_telemetry.get(NODE, ()))
+        meta = dict(_tele_meta.get(NODE, {}))
+    return dict(now=now, readings=rows, meta=meta, bst=_bench_eval(NODE, kwp, yld, tariff), cal=calib.load(),
+                profile=PROFILE.get(), sensors_cfg=SENSORS.load(), rate=_rate(rows, now), kwp=kwp, yld=yld, tariff=tariff,
+                hist=[(t, sc) for t, sc, _ in _session], prev_state=_level["shown"])
+
+
+@app.get("/twin/state")
+def twin_state(tariff: float = C.DEFAULT_TARIFF, yield_kwh_per_kwp_day: float = C.DEFAULT_YIELD):
+    """REAL data only: telemetry + bench points + calibration + LDRs + profile -> everything the owner page shows."""
+    return TWIN.live(_twin_ctx(tariff, yield_kwh_per_kwp_day))
+
+
+@app.post("/twin/sim")
+def twin_sim(r: SimReq):
+    """SIMULATED: the existing /simulate (physics twin + injected faults), shaped like the live view."""
+    out = simulate(r)
+    v = TWIN.sim(r.model_dump() if hasattr(r, "model_dump") else r.dict(), out["payload"], dict(out["result"], ts=out["ts"]),
+                 PROFILE.get(), None)
+    v["now"] = out["ts"]
+    v["sweep"] = dict(points=out["payload"]["points"], expected=out["result"]["expected_points"])
+    return v
+
+
+@app.get("/twin/history")
+def twin_history(seconds: int = 900):
+    now = time.time()
+    return [dict(ts=t, score=sc, light=li) for t, sc, li in _session if now - t <= seconds]
+
+
+@app.get("/twin/alerts")
+def twin_alerts(limit: int = 20):
+    rows = _rows("SELECT id, ts, text, sent FROM alerts WHERE sweep_id = 0 ORDER BY id DESC LIMIT ?", (limit,))
+    return [dict(id=i, ts=ts, text=t, sent=bool(sn)) for i, ts, t, sn in rows]
+
+
+def _health_alert(v, prev, level):
+    """Telegram + alerts list when REAL health moves to amber/red or recovers. Max one per 60 s per level."""
+    now = time.time()
+    if now - _alert_log.get(level, 0) < 60:
+        return
+    _alert_log[level] = now
+    lang = _settings()["lang"]
+    m = v.get("money") or {}
+    top = (v.get("diagnosis") or {}).get("top")
+    key = "tg.recovered" if level == "healthy" else "tg." + level
+    text = i18n.t(lang, key, dict(node=NODE, drop=m.get("loss_pct", 0), inr=m.get("inr_day", 0), kwp=m.get("kwp", ""),
+                                  cause=dict(key="f." + top, p={}) if top else "", score=(v.get("health") or {}).get("score", "")))
+    sent = alerts.send(text)
+    with _lock:
+        con = db()
+        con.execute("INSERT INTO alerts (ts, sweep_id, text, sent) VALUES (?,?,?,?)", (now, 0, text, int(sent)))
+        con.commit()
+        con.close()
+    _event(NODE, "health", dict(level=level, previous=prev, score=(v.get("health") or {}).get("score"), text=text))
+
+
+def _watch():
+    cand, streak, level = None, 0, None
+    while True:
+        time.sleep(2)
+        try:
+            v = TWIN.live(_twin_ctx())
+            h = v.get("health")
+            _session.append((v["now"], h["score"] if h else None, (v["sensors"] or {}).get("light_pct") if v["online"] else None))
+            st = v["state"] if v["state"] in ("healthy", "attention", "critical") else None
+            if st is None:
+                continue                      # offline / no data / no baseline: keep the last level, never alert
+            _level["shown"] = st
+            cand, streak = (st, streak + 1) if st == cand else (st, 1)
+            if streak >= 3 and st != level:   # must hold for ~6 s
+                prev, level = level, st
+                if prev is not None:
+                    _health_alert(v, prev, st)
+        except Exception:
+            pass
+
+
+threading.Thread(target=_watch, daemon=True, name="health-watch").start()
+
+
+class CalVerify(BaseModel):
+    meter_ma: float = Field(..., description="Multimeter reading in series, mA, taken at the same moment")
+
+
+@app.get("/calibration")
+def get_calibration():
+    now = time.time()
+    with _lock:
+        rows = [r["ma"] for r in _telemetry.get(NODE, ()) if now - r["ts"] <= 10]
+    return dict(calibration=calib.load(), live=dict(n=len(rows), ina_avg_ma=(sum(rows) / len(rows)) if rows else None,
+                                                    spread=(float(np.std(rows)) if rows else None)))
+
+
+@app.post("/calibration/verify")
+def verify_calibration(c: CalVerify):
+    """gain = multimeter / INA219 average over the last 10 s. Nothing ever auto-adjusts."""
+    now = time.time()
+    with _lock:
+        rows = [r["ma"] for r in _telemetry.get(NODE, ()) if now - r["ts"] <= 10]
+    if len(rows) < 5:
+        raise HTTPException(422, "cal.err.nodata")
+    try:
+        return calib.verify(c.meter_ma, sum(rows) / len(rows))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@app.post("/calibration/reset")
+def reset_calibration():
+    return calib.reset()
+
+
+@app.get("/sensors")
+def get_sensors():
+    with _lock:
+        rows = list(_telemetry.get(NODE, ()))
+    last = rows[-1] if rows else None
+    base = _baseline(NODE)
+    live = SENSORS.normalise(last.get("ldr") if last and time.time() - last["ts"] <= 10 else None, base.get("ldr_base") if base else None)
+    return dict(sensors=live, temperature_fitted=bool(last and last.get("temp_c") is not None))
+
+
+@app.get("/profile")
+def get_profile():
+    return dict(active=PROFILE.active_id(), profiles=PROFILE.all_profiles(), fields=PROFILE.FIELDS)
+
+
+class ProfileReq(BaseModel):
+    id: str = "custom"
+    fields: dict
+
+
+@app.post("/profile")
+def save_profile(r: ProfileReq):
+    p = PROFILE.save(r.id, r.fields)
+    if PROFILE.has_datasheet(p):
+        try:
+            PROFILE.fit(p)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+    return p
+
+
+class ProfileActive(BaseModel):
+    id: str
+
+
+@app.post("/profile/active")
+def set_profile_active(r: ProfileActive):
+    try:
+        PROFILE.set_active(r.id)
+    except KeyError:
+        raise HTTPException(404, "unknown profile")
+    return PROFILE.get()
 
 
 # Simulated fleet: approximate coordinates of Bengaluru localities (for the schematic site map only).

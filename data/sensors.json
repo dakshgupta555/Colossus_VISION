@@ -1,0 +1,10 @@
+{
+  "_note": "Edit roles and pins to match the node. role: reference (next to the panel, never covered) or region. region: top-left, top-right, bottom-left, bottom-right, left, right. List order = the order of the ldr values the node reports. invert: true if a HIGHER raw ADC value means LESS light (depends on the divider).",
+  "sensors": [
+    {"id": "ldr1", "name": "Reference LDR", "pin": 34, "role": "reference", "region": null, "invert": false},
+    {"id": "ldr2", "name": "Top-left LDR", "pin": 35, "role": "region", "region": "top-left", "invert": false},
+    {"id": "ldr3", "name": "Top-right LDR", "pin": 32, "role": "region", "region": "top-right", "invert": false},
+    {"id": "ldr4", "name": "Bottom-left LDR", "pin": 33, "role": "region", "region": "bottom-left", "invert": false},
+    {"id": "ldr5", "name": "Bottom-right LDR", "pin": 25, "role": "region", "region": "bottom-right", "invert": false}
+  ]
+}

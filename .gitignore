@@ -2,3 +2,6 @@ __pycache__/
 .DS_Store
 data/*.db
 venv/
+data/calibration.json
+data/panel_profile.json
+data/settings.json

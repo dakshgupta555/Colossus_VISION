@@ -14,6 +14,9 @@ A reading is made when the "Current:" line arrives, using the latest "Bus Voltag
 Bench wiring (one panel): a jumper from INA219 VIN- to panel minus = short circuit (V ~ 0, I = Isc);
 jumper removed = open circuit (I ~ 0, V = Voc). Panel minus is tied to ESP32 GND.
 
+If the node also prints LDR values ("LDR1: 2345" ...) or a temperature ("Temperature: 28.5 C") they are parsed and
+sent along (fields ldr, temp_c). Nothing is invented: a sensor that does not print stays null.
+
 Every reading goes to POST /telemetry (raw value + the state of the 3 s rolling average).
 Once the state has been stable for 2 s, the 3 s average also goes to POST /bench/point.
 States:  SHORT  V < 0.15 V and I >= 0.15 mA   OPEN  I < 0.15 mA and V > 0.3 V
@@ -33,6 +36,8 @@ import time
 import requests
 import serial
 
+NUM = re.compile(r"-?\d+(?:\.\d+)?")
+LDR_LABEL = re.compile(r"^\s*ldr[\s_\-\[]*(\d+)?\]?\s*$", re.I)   # "LDR", "LDR1", "LDR 2", "LDR_3", "LDR[0]"
 V_RE = re.compile(r"Bus Voltage:\s*(-?\d+(?:\.\d+)?)\s*V", re.I)
 MA_RE = re.compile(r"^\s*Current:\s*(-?\d+(?:\.\d+)?)\s*mA", re.I)
 
@@ -83,6 +88,31 @@ class Window:
         return dict(state=st, settled=settled, v_avg=v_avg, ma_avg=ma_avg, spread=spread, n=len(self.buf))
 
 
+def parse_extra(line, ldr_seq):
+    """LDR / temperature lines, if the node prints them. Returns (kind, value) or None.
+    LDR: 'LDR1: 2345', 'LDR 2 = 1500', 'LDR: 1200, 1800, 900'   -> ("ldr", {index: raw})
+    Temperature: 'Temperature: 28.5 C', 'Temp = 31.2'             -> ("temp", celsius)"""
+    low = line.lower()
+    if ":" not in line and "=" not in line:
+        return None
+    label, _, rest = re.split(r"([:=])", line, maxsplit=1)[0], None, re.split(r"[:=]", line, maxsplit=1)[1]
+    vals = [float(x) for x in NUM.findall(rest)]
+    if not vals:
+        return None
+    if "ldr" in label.lower():
+        if len(vals) > 1:
+            return "ldr", {i: v for i, v in enumerate(vals)}
+        m = LDR_LABEL.match(label)
+        idx = int(m.group(1)) - 1 if m and m.group(1) is not None else ldr_seq
+        return "ldr", {max(0, idx): vals[0]}
+    if "temp" in label.lower():
+        c = vals[0]
+        if re.search(r"\bf\b|°f", rest.lower()):
+            c = (c - 32) * 5 / 9
+        return "temp", c
+    return None
+
+
 def find_port():
     ports = sorted(glob.glob("/dev/cu.usbserial*") + glob.glob("/dev/cu.SLAB_USBtoUART*")
                    + glob.glob("/dev/cu.wchusbserial*") + glob.glob("/dev/cu.usbmodem*"))
@@ -131,6 +161,7 @@ def main():
             continue
         print(f"connected to {port} at {a.baud} baud, posting to {a.url} as {a.node}", flush=True)
         v, win = None, Window()
+        ldr, ldr_t, temp, temp_t, ldr_seq = {}, 0.0, None, 0.0, 0
         try:
             while True:
                 line = ser.readline().decode("utf-8", "replace")
@@ -139,6 +170,14 @@ def main():
                 m = V_RE.search(line)
                 if m:
                     v = float(m.group(1))
+                    ldr_seq = 0
+                    continue
+                ex = parse_extra(line, ldr_seq)
+                if ex:
+                    if ex[0] == "ldr":
+                        ldr.update(ex[1]); ldr_t = time.time(); ldr_seq = max(ex[1]) + 1
+                    else:
+                        temp, temp_t = ex[1], time.time()
                     continue
                 m = MA_RE.match(line)
                 if not m:
@@ -146,9 +185,12 @@ def main():
                 ma, t = float(m.group(1)), time.time()
                 w = win.add(t, v, ma)
                 n += 1
+                fresh = lambda t0: t - t0 < 5.0          # an old LDR/temperature value is dropped, never reused
+                ldr_list = [ldr.get(i) for i in range(max(ldr) + 1)] if ldr and fresh(ldr_t) else None
                 ok = post(a.url + "/telemetry", dict(
                     node_id=a.node, source="real", v=v, ma=ma, raw=line.strip(), state=w["state"],
-                    settled=w["settled"], v_avg=w["v_avg"], ma_avg=w["ma_avg"], spread=w["spread"]))
+                    settled=w["settled"], v_avg=w["v_avg"], ma_avg=w["ma_avg"], spread=w["spread"],
+                    ldr=ldr_list, temp_c=temp if (temp is not None and fresh(temp_t)) else None))
                 sent = ""
                 if w["settled"] and w["state"] and w["v_avg"] is not None:
                     ok = post(a.url + "/bench/point", dict(
@@ -158,7 +200,9 @@ def main():
                 vtxt = "null" if v is None else f"{v:.3f} V"
                 st = (w["state"] or "?").upper() + ("" if w["settled"] else " (settling)")
                 print(f"#{n} {time.strftime('%H:%M:%S')} v={vtxt} i={ma:.1f} mA | 3s avg i={w['ma_avg']:.2f} mA "
-                      f"spread={w['spread']:.2f} | {st}{sent} -> {'sent' if ok else 'POST failed'}", flush=True)
+                      f"spread={w['spread']:.2f} | {st}{sent}"
+                      + (f" | ldr={ldr_list}" if ldr_list else "") + (f" | T={temp:.1f}C" if temp is not None and fresh(temp_t) else "")
+                      + f" -> {'sent' if ok else 'POST failed'}", flush=True)
                 v = None
         except (serial.SerialException, OSError) as exc:
             print(f"serial lost ({exc.__class__.__name__}); reconnecting in 2 s", flush=True)
