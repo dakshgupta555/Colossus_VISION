@@ -68,6 +68,16 @@ Telegram alerts (optional): message @BotFather, `/newbot`, copy the token, send 
 | `virtual_node.py` | Posts SIMULATED sweeps exactly like the ESP32 will |
 | `serial_bridge.py` | Reads the ESP32's INA219 Serial printouts over USB and POSTs them to `/telemetry` (shown as the "Live sensor" strip in Live node mode). Close the Arduino Serial Monitor first. |
 
+## Solar farm planner (installer console, tab "Solar farm planner")
+
+**PLANNING / SIMULATED, not a measurement and not GPS.** Enter a farm size, block grid, node limits and LoRa range (all defaults are
+illustrative assumptions in `data/farm_planner.json`); `sn/planner.py` (numpy only) places sensing nodes by capacitated k-medoids and
+LoRa gateways by greedy set cover, reports dead zones, and compares scenarios A dense (one node per block), B optimised and C
+budget-limited with illustrative costs. "Simulate this farm" generates SIMULATED telemetry for the planned nodes (the existing fleet
+simulation), detects zone issues, and feeds the maintenance queue, which extends the existing alerts and service queue with a priority
+score (`sn/maint.py`, weights in the same config), action cards and Pending / Under inspection / Resolved / False alarm statuses with
+history. Real SN-001 events only ever say "possible causes". Tests: `python -m pytest tests`.
+
 ## Two views
 
 - **Owner view** (`http://localhost:8000/`): Digital Twin & Health. A 3D twin of the panel (three.js is vendored in `web/vendor/`,

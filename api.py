@@ -14,7 +14,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from sn import alerts, config as C, engine, i18n
+from sn import alerts, config as C, engine, i18n, maint as MAINT
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("SN_DB") or os.path.join(ROOT, "data", "suryanidaan.db")
@@ -31,6 +31,7 @@ def db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, sweep_id INTEGER, text TEXT, sent INTEGER)""")
     con.execute("""CREATE TABLE IF NOT EXISTS bench_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, node_id TEXT, kind TEXT, data TEXT)""")
+    MAINT.init(con)
     con.execute("""CREATE TABLE IF NOT EXISTS tickets (
         id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, site TEXT, label TEXT, sweep_id INTEGER, status TEXT)""")
     return con
@@ -565,6 +566,26 @@ def _health_alert(v, prev, level):
     _event(NODE, "health", dict(level=level, previous=prev, score=(v.get("health") or {}).get("score"), text=text))
 
 
+_live_info = dict(state=None, since=None, avg=None, drop=None)     # current REAL simple-mode episode (amber / red)
+LIVE_KEY = "real:SN-001:live"
+
+
+def _live_episode(prev, state, avg, drop, now):
+    """Keep the real SN-001 maintenance item in step with the live state; a new amber/red episode counts as a recurrence."""
+    with _lock:
+        con = db()
+        if state in ("amber", "red"):
+            if prev in (None, "green"):
+                MAINT.note_episode(con, LIVE_KEY, "new %s episode" % state)
+                _live_info.update(since=now)
+            _live_info.update(state=state, avg=avg, drop=drop)
+        else:
+            if _live_info.get("state"):
+                MAINT.set_status(con, LIVE_KEY, "resolved", "state returned to green (automatic)")
+            _live_info.update(state=None, since=None, avg=None, drop=None)
+        con.close()
+
+
 def _live_alert(prev, state, avg, drop):
     """Telegram + alerts list when the simple live state goes AMBER/RED or returns to GREEN. Max one per 30 s per state."""
     now = time.time()
@@ -597,6 +618,8 @@ def _watch():
                 online = bool(rows and now - rows[-1]["ts"] <= TWIN.OFFLINE_S)
                 avg, _ = livemode.window_avg(rows, now, cfg["avg_s"]) if online else (None, 0)
                 committed, changed, prev = _tracker.update(livemode.classify(avg, cfg), now, cfg["hold_s"])
+                if changed:
+                    _live_episode(prev, committed, avg, livemode.drop_pct(avg, cfg), now)
                 if changed and prev is not None:
                     _live_alert(prev, committed, avg, livemode.drop_pct(avg, cfg))
                 if now - last_rec >= 2.0:
@@ -699,6 +722,164 @@ def set_profile_active(r: ProfileActive):
     except KeyError:
         raise HTTPException(404, "unknown profile")
     return PROFILE.get()
+
+
+# ---------------------------------------------------------------- solar farm planner (PLANNING / SIMULATED) and maintenance queue
+from sn import farmsim as FARMSIM, planner as PLAN
+
+_farm_sim = dict(result=None, plan=None, ts=None)
+PLAN_KEYS = ("farm", "grid", "node", "lora", "gateways", "budget_inr", "obstacles", "prices_inr", "kwp_per_block")
+
+
+def _planner_cfg(posted=None):
+    cfg = PLAN.load_config()
+    if posted:
+        for k in PLAN_KEYS:
+            if k in posted:
+                cfg[k] = posted[k]
+    g = cfg["grid"]
+    if not (1 <= int(g["rows"]) <= 60 and 1 <= int(g["cols"]) <= 60 and int(g["rows"]) * int(g["cols"]) <= PLAN.MAX_BLOCKS_TOTAL):
+        raise HTTPException(422, "grid must be at most %d blocks" % PLAN.MAX_BLOCKS_TOTAL)
+    if cfg["farm"].get("mode", "area") == "area" and float(cfg["farm"]["acres"]) <= 0:
+        raise HTTPException(422, "acres must be positive")
+    return cfg
+
+
+@app.get("/planner/config")
+def planner_config():
+    return PLAN.load_config()
+
+
+class PlannerReq(BaseModel):
+    config: Optional[dict] = None
+    save: bool = True
+
+
+@app.post("/planner/plan")
+def planner_plan(r: PlannerReq):
+    """A dense, B optimised, C budget-limited plans with illustrative costs. PLANNING only: nothing here is measured."""
+    cfg = _planner_cfg(r.config)
+    if r.save and r.config:
+        PLAN.save_config(cfg)
+    s = PLAN.scenarios(cfg)
+    _farm_sim.update(result=None, plan=None)        # a new plan invalidates the previous simulation
+    return dict(config=cfg, scenarios=s, label="PLANNING")
+
+
+class FarmSimReq(BaseModel):
+    seed: int = 1
+    config: Optional[dict] = None
+
+
+@app.post("/planner/simulate")
+def planner_simulate(r: FarmSimReq):
+    """SIMULATED telemetry for the optimised plan's nodes (reuses the fleet simulation) feeding the maintenance queue."""
+    cfg = _planner_cfg(r.config)
+    p = PLAN.plan(cfg, "optimised")
+    res = FARMSIM.simulate(p, cfg, engine, r.seed, C.DEFAULT_YIELD, C.DEFAULT_TARIFF)
+    _farm_sim.update(result=res, plan=p, ts=time.time())
+    with _lock:
+        con = db()
+        for it in _farm_items():
+            MAINT.note_episode(con, it["key"], "simulated farm run %d" % r.seed)
+        con.close()
+    return dict(label="SIMULATED", plan=p, nodes=res["nodes"], zones=res["zones"], seed=r.seed)
+
+
+def _farm_items():
+    """Maintenance items from the simulated farm: one per faulty node, one per zone (zones replace their member nodes)."""
+    sim = _farm_sim["result"]
+    if not sim:
+        return []
+    zone_nodes = {n for z in sim["zones"] for n in z["nodes"]}
+    items = []
+    for z in sim["zones"]:
+        items.append(dict(key="farm:zone:%s:%s" % (z["id"], z["family"]), kind="zone_issue", source="SIMULATED", node=z["id"], severity=min(1.0, 0.5 + z["loss_pct"] / 80.0),
+                          minutes_ago=z["minutes_ago"], inr_day=z["inr_day"], evidence_strength=min(1.0, 0.4 + 0.1 * len(z["nodes"])), loss_pct=z["loss_pct"],
+                          n_blocks=z["n_blocks"], n_nodes=len(z["nodes"]), conf=None))
+    for nid, v in sim["nodes"].items():
+        if nid in zone_nodes:
+            continue
+        if v["status"] == "offline":
+            items.append(dict(key="farm:%s:offline" % nid, kind="node_offline", source="SIMULATED", node=nid, severity=0.9, minutes_ago=v["minutes_ago"],
+                              inr_day=0.0, evidence_strength=0.9, loss_pct=None, conf=None))
+        elif v["status"] in ("warn", "bad") and v["label"] in MAINT.FAULT_CLASSES:
+            items.append(dict(key="farm:%s:%s" % (nid, v["label"]), kind=v["label"], source="SIMULATED", node=nid, severity=min(1.0, v["loss_pct"] / 50.0),
+                              minutes_ago=v["minutes_ago"], inr_day=v["inr_day"], evidence_strength=v["conf"], loss_pct=v["loss_pct"], conf=v["conf"]))
+    return items
+
+
+def _queue_items():
+    items = []
+    for row in fleet(C.DEFAULT_YIELD, C.DEFAULT_TARIFF)["rows"]:             # the EXISTING service queue (simulated fleet + bench rows)
+        if row.get("bench") or row["label"] == "healthy" or row["label"] not in MAINT.FAULT_CLASSES:
+            continue
+        items.append(dict(key="fleet:%s:%s" % (row["site"], row["label"]), kind=row["label"], source="REAL" if row["source"] == "real" else "SIMULATED",
+                          node=row["site"], severity=min(1.0, row["loss_pct"] / 50.0), minutes_ago=row["minutes_ago"], inr_day=row["inr_day"],
+                          evidence_strength=row["confidence"] if row["status"] == "ok" else 0.4, loss_pct=row["loss_pct"], conf=row["confidence"],
+                          ticket=row.get("ticket") or None, locality=row["locality"]))
+    if _live_info.get("state") and _live_info.get("since"):                  # the REAL SN-001 live episode (alerts feed this)
+        st = _live_info["state"]
+        prof = PROFILE.get()
+        m = engine.money((_live_info["drop"] or 0) / 100.0, prof.get("kwp") or C.DEFAULT_KWP, C.DEFAULT_YIELD, C.DEFAULT_TARIFF)
+        items.append(dict(key=LIVE_KEY, kind="live_" + st, source="REAL", node="SN-001", severity=1.0 if st == "red" else 0.6,
+                          minutes_ago=(time.time() - _live_info["since"]) / 60.0, inr_day=m["inr_day"], evidence_strength=0.5,
+                          loss_pct=_live_info["drop"], avg_ma=_live_info["avg"], conf=None))
+    return items + _farm_items()
+
+
+@app.get("/maint/queue")
+def maint_queue(include_closed: bool = True):
+    cfg = PLAN.load_config()
+    items = _queue_items()
+    out = []
+    with _lock:
+        con = db()
+        now = time.time()
+        for it in items:
+            r = con.execute("SELECT status, occurrences, first_ts FROM maint_state WHERE key=?", (it["key"],)).fetchone()
+            if not r:
+                con.execute("INSERT INTO maint_state VALUES (?,?,?,?,?,?)", (it["key"], "pending", 1, now, now, ""))
+                MAINT._hist(con, it["key"], "pending", "first seen")
+                r = ("pending", 1, now)
+            else:
+                con.execute("UPDATE maint_state SET last_seen=? WHERE key=?", (now, it["key"]))
+            it["status"], it["occurrences"] = r[0], r[1]
+            sc, cat, fac = MAINT.score(it, r[1], cfg)
+            it.update(score=sc, category=cat, factors=fac, badge=it["source"], card=MAINT.card(it))
+            out.append(it)
+        con.commit()
+        con.close()
+    out.sort(key=lambda x: -x["score"])
+    closed = [i for i in out if i["status"] in ("resolved", "false_alarm")]
+    return dict(items=[i for i in out if i not in closed] + (closed if include_closed else []), open=len(out) - len(closed), closed=len(closed),
+                weights=cfg["maintenance"]["weights"], categories=cfg["maintenance"]["categories"])
+
+
+class MaintStatus(BaseModel):
+    key: str
+    status: str
+    note: str = ""
+
+
+@app.post("/maint/status")
+def maint_set_status(s: MaintStatus):
+    if s.status not in MAINT.STATUSES:
+        raise HTTPException(422, "status must be one of %s" % MAINT.STATUSES)
+    with _lock:
+        con = db()
+        MAINT.set_status(con, s.key, s.status, s.note)
+        con.close()
+    return dict(ok=True)
+
+
+@app.get("/maint/history")
+def maint_history(key: str):
+    with _lock:
+        con = db()
+        h = MAINT.history(con, key)
+        con.close()
+    return h
 
 
 # Simulated fleet: approximate coordinates of Bengaluru localities (for the schematic site map only).

@@ -70,6 +70,22 @@ h2{font-size:15px;font-weight:700;margin:0 0 10px}
 .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:#F7F8FA;border:1px solid var(--line2);border-radius:6px;padding:4px 8px;display:inline-block}
 #liveView>.card,#liveAdvBody>.card{margin-bottom:14px}
 @media (max-width:900px){.lverdict .figs,.wi{grid-template-columns:1fr}}
+.farmbanner{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:repeating-linear-gradient(135deg,#FFF4D8,#FFF4D8 10px,#FDEBC0 10px,#FDEBC0 20px);border:1px solid #E9C877;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-weight:600;color:#6B4700}
+.fgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px 12px;margin-top:10px}
+.fgrid label{font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.fgrid input,.fgrid select{border:1px solid var(--line);border-radius:6px;padding:5px 7px;background:#fff;font-weight:600;font-size:14px}
+.fgrid label.chk{flex-direction:row;align-items:center;gap:6px;margin-top:16px}.fgrid label.chk input{width:auto}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}.kpis .k{font-size:12px;color:var(--muted);font-weight:600}.kpis .v{font-size:22px;font-weight:700}
+.scns{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:8px 0}
+.scn{border:1px solid var(--line);border-radius:10px;padding:12px 14px}.scn.sel{border-color:var(--cell);box-shadow:0 0 0 2px var(--cell-soft)}
+.scn h3{margin:0 0 6px;font-size:14px}.scn dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13.5px}.scn dt{color:var(--muted)}.scn dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+#fMap{height:520px}#fCmp{height:230px}
+.qwrap{display:grid;grid-template-columns:7fr 5fr;gap:14px}
+.qtbl tr.sel td{background:var(--cell-soft)}.qtbl select{border:1px solid var(--line);border-radius:6px;padding:3px 5px;font-size:13px}
+.qtbl thead th{position:sticky;top:0;background:#fff}.acard h3{margin:10px 0 2px;font-size:13px;color:var(--muted)}.acard p{margin:0;font-size:14px}.acard ul{margin:2px 0 0;padding-left:18px;font-size:13.5px}
+.cat{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:5px;border:1px solid var(--line)}
+.cat.critical{background:var(--bad-soft);color:var(--bad);border-color:#F0C6BD}.cat.high{background:var(--warn-soft);color:var(--warn);border-color:#ECD49A}.cat.medium{background:#EAF0F9;color:#1E4E9A;border-color:#CBD9EF}.cat.low{background:#F2F4F7;color:#6E7985}
+@media (max-width:900px){.fgrid{grid-template-columns:1fr 1fr}.scns,.qwrap{grid-template-columns:1fr}}
 .realtag{font-size:12px;font-weight:700;padding:3px 9px;border-radius:5px;color:var(--ok);background:var(--ok-soft);border:1px solid #BFE0CD}
 .chip{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:5px;border:1px solid var(--line);color:var(--ink2);background:#F7F8FA;white-space:nowrap}
 .chip.bad{color:var(--bad);background:var(--bad-soft);border-color:#F0C6BD}
@@ -221,6 +237,7 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
   <button data-v="fleet" data-t="tab.fleet"></button>
   <button data-v="model" data-t="tab.model"></button>
   <button data-v="log" data-t="tab.log"></button>
+  <button data-v="farm" data-t="tab.farm"></button>
 </nav>
 
 <main>
@@ -408,7 +425,7 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
     <div class="card"><h2 data-t="fleet.map"></h2><div id="map"></div><p class="small" style="margin:6px 0 0" data-t="fleet.mapnote"></p></div>
     <div class="card"><h2 data-t="fleet.queue"></h2><div class="scroll"><table><thead><tr>
       <th data-t="th.site"></th><th data-t="th.locality"></th><th data-t="th.diag"></th><th data-t="th.where"></th>
-      <th class="n" data-t="th.loss"></th><th class="n nw" data-t="th.perday"></th><th class="nw" data-t="th.last"></th><th data-t="th.ticket"></th>
+      <th class="n" data-t="th.loss"></th><th class="n nw" data-t="th.perday"></th><th class="nw" data-t="th.last"></th><th data-t="th.ticket"></th><th data-t="th.priority"></th>
     </tr></thead><tbody id="qRows"></tbody></table></div></div>
   </div>
 </section>
@@ -438,6 +455,53 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
   <table><thead><tr><th>#</th><th data-t="th.time"></th><th data-t="th.node"></th><th data-t="th.source"></th><th data-t="th.diag"></th>
     <th data-t="th.where"></th><th class="n" data-t="th.conf"></th><th class="n" data-t="th.loss"></th><th class="n" data-t="th.perday"></th><th data-t="th.rule"></th></tr></thead>
   <tbody id="logRows"></tbody></table></div>
+</section>
+<!-- ===================== SOLAR FARM PLANNER ===================== -->
+<section class="view" id="v-farm">
+  <div class="farmbanner"><span class="simtag">PLANNING / SIMULATED</span><span data-t="farm.banner"></span></div>
+  <div class="card">
+    <div class="row"><h2 style="margin:0" data-t="tab.farm"></h2><span class="simtag" data-t="farm.assume"></span></div>
+    <div class="fgrid" id="fForm"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn dark" id="fPlan" data-t="farm.plan"></button>
+      <button class="btn" id="fEdit" data-t="farm.edit"></button>
+      <button class="btn" id="fClear" data-t="farm.clear"></button>
+      <button class="btn dark" id="fSim" data-t="farm.sim"></button>
+      <span class="small" id="fMsg"></span>
+    </div>
+    <p class="small" id="fEditNote" hidden style="margin:6px 0 0" data-t="farm.edit.on"></p>
+  </div>
+  <div class="two">
+    <div class="card">
+      <div class="row"><h2 style="margin:0" data-t="farm.map.title"></h2><span class="simtag" data-t="farm.planning"></span>
+        <div class="seg" id="fScn"><button data-s="A" class="">A</button><button data-s="B" class="on">B</button><button data-s="C">C</button></div>
+        <div class="seg" id="fView"><button data-w="node" class="on" data-t="farm.view.node"></button><button data-w="status" data-t="farm.view.status"></button></div></div>
+      <p class="small" style="margin:2px 0 4px" data-t="farm.map.cap"></p>
+      <div id="fMap"></div>
+      <p class="small" id="fClick" style="margin:4px 0" data-t="farm.click"></p>
+      <div class="legend small" style="flex-wrap:wrap"><span><i style="border-top:3px solid #1F7A4D"></i><span data-t="farm.leg.g"></span></span><span><i style="border-top:3px solid #E8A100"></i><span data-t="farm.leg.a"></span></span><span><i style="border-top:3px dashed #C4321C"></i><span data-t="farm.leg.r"></span></span><span data-t="farm.leg.dead"></span><span data-t="farm.leg.obs"></span></div>
+    </div>
+    <div class="side">
+      <div class="card"><div class="kpis" id="fKpis"></div><p class="small" id="fFarm" style="margin:8px 0 0"></p></div>
+      <div class="card"><p class="small" id="fBlock" style="margin:0" data-t="farm.click"></p><div id="fSimInfo" style="margin-top:8px"></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="row"><h2 style="margin:0" data-t="farm.sc.title"></h2><span class="simtag" data-t="farm.planning"></span><span class="small" data-t="farm.cost.note"></span></div>
+    <div class="scns" id="fScns"></div>
+    <p style="margin:4px 0 8px;font-weight:700" id="fTrade"></p>
+    <div id="fCmp"></div>
+    <details style="margin-top:8px"><summary style="cursor:pointer;font-weight:600" data-t="farm.prices"></summary><div class="fgrid" id="fPrices"></div></details>
+  </div>
+  <div class="card">
+    <div class="row"><h2 style="margin:0" data-t="maint.title"></h2><span class="simtag">SIMULATED</span><span class="realtag" data-t="tag.real"></span></div>
+    <p class="small" style="margin:2px 0 8px" data-t="maint.sub"></p>
+    <div class="qwrap">
+      <div style="max-height:470px;overflow:auto"><table class="qtbl"><thead><tr><th data-t="th.priority"></th><th data-t="th.site"></th><th data-t="th.diag"></th><th data-t="th.source"></th><th data-t="maint.status"></th></tr></thead><tbody id="qBody"></tbody></table>
+        <details id="qClosedWrap" style="margin-top:8px" hidden><summary class="small" id="qClosedT"></summary><table class="qtbl"><tbody id="qClosed"></tbody></table></details></div>
+      <div class="acard" id="aCard"><p class="small" data-t="maint.pick"></p></div>
+    </div>
+  </div>
 </section>
 <p class="foot" data-t="foot"></p>
 </main>
@@ -478,6 +542,7 @@ function setLang(l, tell){
   [...$("lang").children].forEach(b => b.classList.toggle("on", b.dataset.l === l));
   applyStatic(); setModeText(); if (cur) render(); if (fleet) { drawFleet(); drawAlerts(); } if (tab === "log") loadLog(); loadRecent();
   if (mode === "live") { renderLive(); drawWhatif(true); }
+  if (tab === "farm" && FC) { buildFarmForm(); drawFarm(); renderQueue(); }
   if (tell) fetch("/settings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({lang:l})}).catch(()=>{});
 }
 
@@ -500,7 +565,7 @@ setInterval(()=>{ $("clock").textContent = new Date().toLocaleTimeString("en-IN"
 function showTab(v){ tab = v;
   [...$("tabs").children].forEach(b => b.classList.toggle("on", b.dataset.v === v));
   document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-"+v));
-  if (v==="fleet") loadFleet(); if (v==="model") loadModel(); if (v==="log") loadLog();
+  if (v==="fleet") loadFleet(); if (v==="model") loadModel(); if (v==="log") loadLog(); if (v==="farm") loadFarm();
   if (v==="diag") { if (mode==="live") { drawLiveChart(); drawWhatif(true); drawTrend(); } else if (cur) drawChart(); } window.scrollTo(0,0);
 }
 $("tabs").onclick = e => { if (e.target.dataset.v) showTab(e.target.dataset.v); };
@@ -874,7 +939,10 @@ async function loadRecent(){
 $("strip").onclick = e => { if (e.target.dataset.id) openScan(e.target.dataset.id, "diag"); };
 
 /* ---------- fleet + alerts ---------- */
+let fleetQ = {};
+function fleetPri(site){ const i = fleetQ[site]; return i ? `<span class="cat ${i.category}" title="${esc(T("th.priority"))}">${esc(T("cat."+i.category))} ${nf(i.score,0)}</span>` : ""; }
 async function loadFleet(quiet){
+  try { const q = await fetch("/maint/queue").then(r=>r.json()); fleetQ = {}; q.items.forEach(i => { if (!["resolved","false_alarm"].includes(i.status) && !fleetQ[i.node]) fleetQ[i.node] = i; }); } catch(e) {}
   try { fleet = await fetch(`/fleet?tariff=${$("tariff").value}&kwp=${$("kwp").value}`).then(r=>r.json()); } catch(e) { return; }
   drawAlerts(); if (tab==="fleet" || !quiet) drawFleet();
 }
@@ -888,7 +956,7 @@ function drawFleet(){
     const tag = r.live ? (r.source==="real" ? `<span class="realtag nw">Live</span> <span class="realtag nw">${esc(T("log.f.real"))}</span>` : '<span class="simtag">Live</span>') : "";
     const pw = r.bench && r.power_mw!=null ? `<div class="small">${esc(T("fleet.live.now",{x:nf(r.power_mw,2)}))}</div>` : "";
     return `<tr class="click" data-site="${r.site}"><td><b>${r.site}</b> ${tag}${pw}</td><td>${esc(r.locality)}</td><td><span class="chip ${sc}">${esc(T("f."+r.label))}</span></td>
-      <td${r.bench?' class="small" style="min-width:230px"':""}>${esc(whereOf(r))}</td><td class="n">${nf(r.loss_pct,1)}%</td><td class="n"><b>${nf(r.inr_day,1)}</b></td><td class="nw">${esc(agoRow(r))}</td><td>${esc(r.ticket||"")}</td></tr>`; }).join("");
+      <td${r.bench?' class="small" style="min-width:230px"':""}>${esc(whereOf(r))}</td><td class="n">${nf(r.loss_pct,1)}%</td><td class="n"><b>${nf(r.inr_day,1)}</b></td><td class="nw">${esc(agoRow(r))}</td><td>${esc(r.ticket||"")}</td><td>${fleetPri(r.site)}</td></tr>`; }).join("");
   const font = {family:getComputedStyle(document.body).fontFamily, size:12, color:"#44505C"};
   const traces = FLEETL.filter(k => rows.some(r=>r.label===k)).map(k => { const rs = rows.filter(r=>r.label===k);
     return {x:rs.map(r=>r.lon), y:rs.map(r=>r.lat), customdata:rs.map(r=>r.site), name:T("f."+k), mode:k==="healthy"?"markers":"markers+text",
@@ -961,6 +1029,152 @@ async function loadLog(){
 }
 $("logRows").onclick = e => { const tr = e.target.closest("tr"); if (!tr) return;
   if (tr.dataset.ev) { showTab("diag"); setMode("live"); } else if (tr.dataset.id) openScan(tr.dataset.id, "log"); };
+
+/* ---------- solar farm planner (PLANNING / SIMULATED) + maintenance queue ---------- */
+let FC = null, FP = null, FSIM = null, fView = "node", fScn = "B", fEdit = false, fBusy = false, Q = null, qSel = null;
+const FORM = [["farm.mode","select",["area","dims"],"farm.size.mode"],["farm.acres","number",null,"farm.acres","area"],["farm.aspect","number",null,"farm.aspect","area"],
+  ["farm.length_m","number",null,"farm.length","dims"],["farm.width_m","number",null,"farm.width","dims"],["grid.rows","number",null,"farm.rows"],["grid.cols","number",null,"farm.cols"],
+  ["node.max_blocks","number",null,"farm.maxblocks"],["node.max_dist_m","number",null,"farm.maxdist"],["lora.range_m","number",null,"farm.lora"],["lora.obstructed","check",null,"farm.obstructed"],
+  ["lora.obstructed_factor","number",null,"farm.obsfactor"],["gateways.mode","select",["auto","fixed"],"farm.gw.mode"],["gateways.count","number",null,"farm.gw.count","fixed"],["gateways.redundant","check",null,"farm.gw.redundant"],["budget_inr","number",null,"farm.budget"]];
+const getp = (o,p) => p.split(".").reduce((a,k)=>a==null?a:a[k], o), setp = (o,p,v) => { const ks=p.split("."); const l=ks.pop(); ks.reduce((a,k)=>a[k], o)[l]=v; };
+function buildFarmForm(){
+  if (!FC) return;
+  $("fForm").innerHTML = FORM.filter(f => !f[4] || (f[4]==="area" ? FC.farm.mode!=="dims" : f[4]==="dims" ? FC.farm.mode==="dims" : FC.gateways.mode==="fixed")).map(([path,ty,opts,lab]) => {
+    const v = getp(FC, path);
+    if (ty==="check") return `<label class="chk"><input type="checkbox" data-p="${path}" ${v?"checked":""}>${esc(T(lab))}</label>`;
+    if (ty==="select") return `<label>${esc(T(lab))}<select data-p="${path}">${opts.map(o => `<option value="${o}" ${v===o?"selected":""}>${esc(T(path==="farm.mode" ? (o==="area"?"farm.mode.acres":"farm.mode.dims") : (o==="auto"?"farm.gw.auto":"farm.gw.fixed")))}</option>`).join("")}</select></label>`;
+    return `<label>${esc(T(lab))}<input type="number" step="any" data-p="${path}" value="${v==null?"":v}"></label>`; }).join("");
+  $("fPrices").innerHTML = Object.keys(FC.prices_inr).map(k => `<label>${esc(T("price."+k))}<input type="number" step="any" data-pr="${k}" value="${FC.prices_inr[k]}"></label>`).join("");
+}
+$("fForm").onchange = e => { const el = e.target, p = el.dataset.p; if (!p) return;
+  const v = el.type==="checkbox" ? el.checked : el.tagName==="SELECT" ? el.value : (el.value==="" ? null : +el.value); setp(FC, p, v);
+  if (p==="farm.mode" || p==="gateways.mode") buildFarmForm(); };
+$("fPrices").onchange = e => { const k = e.target.dataset.pr; if (k) { FC.prices_inr[k] = +e.target.value; runPlan(); } };
+async function runPlan(){
+  if (fBusy) return; fBusy = true; $("fMsg").textContent = T("farm.working");
+  try { const r = await fetch("/planner/plan", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({config:FC, save:true})});
+    const d = await r.json(); if (!r.ok) throw new Error(d.detail || r.status);
+    FC = d.config; FP = d.scenarios; FSIM = null; $("fMsg").textContent = ""; $("fSimInfo").innerHTML = ""; drawFarm();
+  } catch(e) { $("fMsg").textContent = T("farm.err",{x:e.message}); }
+  fBusy = false; }
+async function loadFarm(){
+  if (!FC) { FC = await fetch("/planner/config").then(r=>r.json()); buildFarmForm(); await runPlan(); } else drawFarm();
+  loadQueue(); }
+$("fPlan").onclick = runPlan;
+$("fEdit").onclick = () => { fEdit = !fEdit; $("fEdit").classList.toggle("dark", fEdit); $("fEditNote").hidden = !fEdit; };
+$("fClear").onclick = () => { FC.obstacles = []; runPlan(); };
+$("fScn").onclick = e => { const b = e.target.closest("button[data-s]"); if (b){ fScn = b.dataset.s; drawFarm(); } };
+$("fView").onclick = e => { const b = e.target.closest("button[data-w]"); if (b){ fView = b.dataset.w; drawFarm(); } };
+$("fSim").onclick = async () => {
+  if (fBusy) return; fBusy = true; $("fMsg").textContent = T("farm.working");
+  try { const r = await fetch("/planner/simulate", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({seed:Math.floor(Math.random()*9000)+1, config:FC})});
+    const d = await r.json(); if (!r.ok) throw new Error(d.detail || r.status);
+    FSIM = d; fScn = "B"; fView = "status"; $("fMsg").textContent = ""; drawFarm(); loadQueue(); showSimInfo();
+  } catch(e) { $("fMsg").textContent = T("farm.err",{x:e.message}); }
+  fBusy = false; };
+function showSimInfo(){
+  if (!FSIM) { $("fSimInfo").innerHTML = ""; return; }
+  const v = Object.values(FSIM.nodes), bad = v.filter(x => x.status==="warn" || x.status==="bad").length;
+  $("fSimInfo").innerHTML = `<span class="simtag">SIMULATED</span> <span class="small">${esc(T("farm.sim.done",{n:v.length, z:FSIM.zones.length, bad}))}</span>` +
+    FSIM.zones.map(z => `<p class="small" style="margin:6px 0 0"><b>${esc(T("farm.sim.zone",{id:z.id, n:z.nodes.length}))}</b></p>`).join(""); }
+
+function drawFarm(){
+  if (!FP) return;
+  const sc = FP[fScn], p = sc.plan, g = p.geometry;
+  [...$("fScn").children].forEach(b => b.classList.toggle("on", b.dataset.s===fScn)); [...$("fView").children].forEach(b => b.classList.toggle("on", b.dataset.w===fView));
+  // KPIs
+  const k = (t,v) => `<div><div class="k">${esc(T(t))}</div><div class="v num">${v}</div></div>`;
+  $("fKpis").innerHTML = k("farm.kpi.nodes", p.nodes.length) + k("farm.kpi.gateways", p.gateways.length) + k("farm.kpi.coverage", nf(p.coverage_pct,1)+"%") + k("farm.kpi.dead", p.dead_zones.length) +
+    k("farm.kpi.redundancy", nf(p.redundancy_pct,0)+"%") + k("farm.kpi.uncovered", p.uncovered_blocks.length);
+  $("fFarm").textContent = T("farm.kpi.farm",{acres:nf(g.acres,1), l:nf(g.length_m,0), w:nf(g.width_m,0), blocks:p.usable_blocks, bw:nf(g.bw,0), bh:nf(g.bh,0)}) + " · " + T("farm.maxdist.used",{x:nf(p.max_dist_used_m,0)});
+  drawMap(p); drawScenarios(); showSimInfo();
+}
+function drawMap(p){
+  const g = p.geometry, font = {family:getComputedStyle(document.body).fontFamily, size:11, color:"#44505C"};
+  const poly = (r,c) => { const x0=c*g.bw, y0=r*g.bh; return [[x0,x0+g.bw,x0+g.bw,x0,x0],[y0,y0,y0+g.bh,y0+g.bh,y0]]; };
+  const polys = bl => { const xs=[], ys=[]; bl.forEach(([r,c]) => { const [px,py]=poly(r,c); xs.push(...px,null); ys.push(...py,null); }); return {xs,ys}; };
+  const STC = {ok:"#7CC79B", warn:"#F2C25B", bad:"#E58B7E", offline:"#BCC4CE"}, useSim = FSIM && fScn==="B" && fView==="status";
+  const T0 = [];
+  p.nodes.forEach((n,i) => { const st = FSIM && fScn==="B" ? (FSIM.nodes[n.id]||{}).status : null;
+    const col = useSim ? STC[st||"ok"] : `hsl(${(i*137.5)%360},55%,74%)`, q = polys(n.blocks);
+    T0.push({x:q.xs, y:q.ys, mode:"lines", fill:"toself", fillcolor:col, line:{color:"#fff", width:1}, hoverinfo:"skip", showlegend:false}); });
+  if (p.obstacles.length){ const q = polys(p.obstacles); T0.push({x:q.xs, y:q.ys, mode:"lines", fill:"toself", fillcolor:"#E7EAEE", fillpattern:{shape:"x", fgcolor:"#6E7985", size:6}, line:{color:"#9AA3AE", width:1}, hoverinfo:"skip", showlegend:false}); }
+  const dead = [...p.dead_blocks, ...p.unassigned_blocks]; if (dead.length){ const q = polys(dead); T0.push({x:q.xs, y:q.ys, mode:"lines", fill:"toself", fillcolor:"rgba(255,255,255,.6)", fillpattern:{shape:"/", fgcolor:"#C4321C", size:7}, line:{color:"#C4321C", width:1}, hoverinfo:"skip", showlegend:false}); }
+  if (FSIM && fScn==="B") FSIM.zones.forEach(z => { const bl = []; p.nodes.filter(n => z.nodes.includes(n.id)).forEach(n => bl.push(...n.blocks)); const q = polys(bl);
+    T0.push({x:q.xs, y:q.ys, mode:"lines", line:{color:"#14202B", width:2.6}, hoverinfo:"skip", showlegend:false});
+    const cx = bl.reduce((a,b)=>a+(b[1]+0.5)*g.bw,0)/bl.length, cy = bl.reduce((a,b)=>a+(b[0]+0.5)*g.bh,0)/bl.length;
+    T0.push({x:[cx], y:[cy], mode:"text", text:[z.id], textfont:{...font, size:15, color:"#14202B"}, hoverinfo:"skip", showlegend:false}); });
+  const gw = Object.fromEntries(p.gateways.map(q => [q.id,q])), nd = Object.fromEntries(p.nodes.map(q => [q.id,q]));
+  [["#1F7A4D", l => l.ratio<=0.7 && !l.beyond, "solid"], ["#E8A100", l => l.ratio>0.7 && !l.beyond, "solid"], ["#C4321C", l => l.beyond, "dash"]].forEach(([col, f, dash]) => {
+    const xs=[], ys=[]; p.links.filter(f).forEach(l => { const a = nd[l.node], b = gw[l.gateway]; xs.push(a.x,b.x,null); ys.push(a.y,b.y,null); });
+    if (xs.length) T0.push({x:xs, y:ys, mode:"lines", line:{color:col, width:1.4, dash}, hoverinfo:"skip", showlegend:false}); });
+  T0.push({x:p.nodes.map(n=>n.x), y:p.nodes.map(n=>n.y), mode:p.nodes.length<=60?"markers+text":"markers", text:p.nodes.map(n=>n.id.slice(1)), textposition:"top center", textfont:{...font, size:9},
+    marker:{size:9, color:p.nodes.map(n => useSim ? ({ok:"#1F7A4D",warn:"#A66A00",bad:"#C4321C",offline:"#6E7985"})[((FSIM.nodes[n.id]||{}).status)||"ok"] : "#14202B"), line:{color:"#fff", width:1.5}}, hoverinfo:"skip", showlegend:false});
+  T0.push({x:p.gateways.map(q=>q.x), y:p.gateways.map(q=>q.y), mode:"markers+text", text:p.gateways.map(q=>q.id), textposition:"bottom center", textfont:{...font, size:12, color:"#14202B"},
+    marker:{symbol:"diamond", size:15, color:"#1E4E9A", line:{color:"#fff", width:2}}, hoverinfo:"skip", showlegend:false});
+  const cx=[], cy=[], cd=[], hv=[]; const owner = {}; p.nodes.forEach(n => n.blocks.forEach(([r,c]) => owner[r+","+c] = n.id));
+  for (let r=0;r<g.rows;r++) for (let c=0;c<g.cols;c++){ cx.push((c+0.5)*g.bw); cy.push((r+0.5)*g.bh); cd.push([r,c]); hv.push(`${r},${c} → ${owner[r+","+c]||"-"}`); }
+  T0.push({x:cx, y:cy, customdata:cd, text:hv, mode:"markers", marker:{size:Math.max(8, Math.min(26, 560/Math.max(g.rows,g.cols))), opacity:0}, hovertemplate:"%{text}<extra></extra>", showlegend:false});
+  Plotly.react("fMap", T0, {margin:{l:44,r:10,t:6,b:36}, paper_bgcolor:"#fff", plot_bgcolor:"#F7F8FA", font, showlegend:false,
+    xaxis:{range:[0,g.length_m], title:{text:"m", font}, showgrid:false, zeroline:false, constrain:"domain"}, yaxis:{range:[g.width_m,0], title:{text:"m", font}, showgrid:false, zeroline:false, scaleanchor:"x", scaleratio:1}, hoverlabel:{font}},
+    {displayModeBar:false, responsive:true});
+  const el = $("fMap"); el.removeAllListeners && el.removeAllListeners("plotly_click");
+  el.on("plotly_click", ev => { const q = ev.points.find(pt => pt.customdata); if (q) blockClick(q.customdata[0], q.customdata[1], p); });
+}
+function blockClick(r, c, p){
+  if (fEdit){ const i = FC.obstacles.findIndex(o => o[0]===r && o[1]===c); if (i>=0) FC.obstacles.splice(i,1); else FC.obstacles.push([r,c]); runPlan(); return; }
+  if (p.obstacles.some(o => o[0]===r && o[1]===c)) { $("fBlock").textContent = T("farm.block.obstacle",{r,c}); return; }
+  const n = p.nodes.find(n => n.blocks.some(b => b[0]===r && b[1]===c));
+  if (!n) { $("fBlock").textContent = T("farm.block.unmon",{r,c}); return; }
+  const g = p.geometry, d = Math.hypot(n.x-(c+0.5)*g.bw, n.y-(r+0.5)*g.bh), l = p.links.find(l => l.node===n.id && l.primary);
+  let txt = T("farm.block.info",{r, c, node:n.id, d:nf(d,0), link: l && !l.beyond ? T("farm.link.ok",{d:nf(l.distance_m,0), g:l.gateway, m:nf(l.margin_pct,0)}) : T("farm.link.dead")});
+  const st = FSIM && fScn==="B" ? FSIM.nodes[n.id] : null;
+  if (st) txt += " " + T("farm.node.status",{x:T("farm.st."+st.status) + (st.label ? ", " + T("f."+st.label) : "")}) + " (SIMULATED)";
+  $("fBlock").textContent = txt; }
+
+function drawScenarios(){
+  const S = FP, font = {family:getComputedStyle(document.body).fontFamily, size:11, color:"#44505C"}, col = {A:"#8A949E", B:"#1E4E9A", C:"#E8A100"};
+  $("fScns").innerHTML = ["A","B","C"].map(k => { const c = S[k].cost, pl = S[k].plan;
+    return `<div class="scn ${k===fScn?"sel":""}"><h3>${esc(T("farm.sc."+k))}</h3><div class="small">${esc(T("farm.cost.nodes",{n:c.nodes, g:c.gateways}))}${k==="C" ? " · " + esc(T("farm.sc.budget",{b:nf(S.budget_inr,0)})) + (S.budget_assumed ? " " + esc(T("farm.sc.assumed")) : "") : ""}</div>
+      <dl><dt>${esc(T("farm.cost.capex"))}</dt><dd>₹${nf(c.capex,0)}</dd><dt>${esc(T("farm.cost.peracre"))}</dt><dd>₹${nf(c.per_acre,0)}</dd><dt>${esc(T("farm.cost.perblock"))}</dt><dd>${c.per_block==null?"-":"₹"+nf(c.per_block,0)}</dd>
+      <dt>${esc(T("farm.cost.five"))}</dt><dd>₹${nf(c.five_year,0)}</dd><dt>${esc(T("farm.cost.cov"))}</dt><dd>${nf(pl.coverage_pct,1)}%</dd><dt>${esc(T("farm.cost.red"))}</dt><dd>${nf(pl.redundancy_pct,0)}%</dd></dl></div>`; }).join("");
+  $("fTrade").textContent = T(S.summary.key, S.summary.p);
+  const M = [["farm.cost.capex", k=>S[k].cost.capex], ["farm.cost.peracre", k=>S[k].cost.per_acre], ["farm.cost.perblock", k=>S[k].cost.per_block||0], ["farm.cost.cov", k=>S[k].plan.coverage_pct], ["farm.cost.red", k=>S[k].plan.redundancy_pct]];
+  const tr = [], ann = [], lay = {margin:{l:44,r:10,t:30,b:26}, paper_bgcolor:"#fff", plot_bgcolor:"#fff", font, showlegend:false, grid:{rows:1, columns:5, pattern:"independent", xgap:0.06}, annotations:ann};
+  M.forEach(([lab,f],i) => { const n = i+1; tr.push({type:"bar", x:["A","B","C"], y:["A","B","C"].map(f), marker:{color:["A","B","C"].map(k=>col[k])}, xaxis:"x"+(n>1?n:""), yaxis:"y"+(n>1?n:""),
+      text:["A","B","C"].map(k => nf(f(k), i>=3?0:0)), textposition:"outside", hovertemplate:"%{x}: %{y:,.0f}<extra></extra>", cliponaxis:false});
+    lay["xaxis"+(n>1?n:"")] = {tickfont:font}; lay["yaxis"+(n>1?n:"")] = {showgrid:false, showticklabels:false, rangemode:"tozero"};
+    ann.push({text:T(lab), xref:"x"+(n>1?n:"")+" domain", yref:"paper", x:0.5, y:1.16, showarrow:false, font:{...font, size:12, color:"#14202B"}}); });
+  Plotly.react("fCmp", tr, lay, {displayModeBar:false, responsive:true});
+}
+
+/* ---- maintenance queue: extends the existing service queue and alerts (same items, one priority score) ---- */
+async function loadQueue(){ try { Q = await fetch("/maint/queue").then(r=>r.json()); } catch(e) { return; } renderQueue(); if (qSel) showCard(qSel); }
+const kindName = i => ["soiling","partial_shade","series_resistance","bypass_short"].includes(i.kind) ? T("f."+i.kind) : T("maint.kind."+i.kind);
+const srcTag = s => s==="REAL" ? `<span class="realtag">${esc(T("tag.real"))}</span>` : `<span class="simtag">${esc(T("tag.sim"))}</span>`;
+function qRow(i){ return `<tr class="click ${qSel===i.key?"sel":""}" data-k="${esc(i.key)}"><td><b class="num">${nf(i.score,0)}</b> <span class="cat ${i.category}">${esc(T("cat."+i.category))}</span></td><td><b>${esc(i.node)}</b></td><td>${esc(kindName(i))}</td><td>${srcTag(i.source)}</td>
+  <td><select data-k="${esc(i.key)}">${["pending","inspection","resolved","false_alarm"].map(s => `<option value="${s}" ${i.status===s?"selected":""}>${esc(T("status."+s))}</option>`).join("")}</select></td></tr>`; }
+function renderQueue(){
+  if (!Q) return; const open = Q.items.filter(i => !["resolved","false_alarm"].includes(i.status)), closed = Q.items.filter(i => ["resolved","false_alarm"].includes(i.status));
+  $("qBody").innerHTML = open.length ? open.map(qRow).join("") : `<tr><td colspan="5" class="small">${esc(T("maint.empty"))}</td></tr>`;
+  $("qClosedWrap").hidden = !closed.length; $("qClosedT").textContent = T("maint.closed",{n:closed.length}); $("qClosed").innerHTML = closed.map(qRow).join("");
+}
+async function showCard(key){
+  qSel = key; const i = (Q.items||[]).find(x => x.key===key); if (!i) return; renderQueue(); const c = i.card, f = i.factors;
+  const h = await fetch("/maint/history?key="+encodeURIComponent(key)).then(r=>r.json()).catch(()=>[]);
+  $("aCard").innerHTML = `<div class="row"><b>${esc(i.node)}</b> <span class="cat ${i.category}">${esc(T("cat."+i.category))} · ${nf(i.score,0)}</span> ${srcTag(i.source)}</div>
+    <h3>${esc(T("maint.h.what"))}</h3><p>${esc(T(c.what.key,c.what.p))}</p>
+    <h3>${esc(T(c.why_head))}</h3><p>${esc(T(c.why.key))}</p>
+    <h3>${esc(T("maint.h.todo"))}</h3><p>${esc(T(c.todo.key))}</p>
+    <h3>${esc(T("maint.h.wa"))}</h3><p>${esc(T(c.why_action.key))}</p>
+    <h3>${esc(T("maint.h.ev"))}</h3><ul>${c.evidence.map(e => `<li>${esc(T(e.key,e.p))}</li>`).join("")}</ul>
+    <h3>${esc(T("maint.h.follow"))}</h3><p>${esc(T(c.follow.key))}</p>
+    <h3>${esc(T("maint.h.factors"))}</h3><p class="small">${esc(T("maint.factors",f))}</p>
+    <h3>${esc(T("maint.h.history"))}</h3><ul class="small">${h.map(x => `<li>${clock(x.ts)} · ${esc(T("status."+x.status))}${x.note ? " · " + esc(x.note) : ""}</li>`).join("")}</ul>`;
+}
+document.addEventListener("click", e => { const tr = e.target.closest("#v-farm tr[data-k]"); if (tr && e.target.tagName!=="SELECT") showCard(tr.dataset.k); });
+document.addEventListener("change", async e => { const sel = e.target.closest("#v-farm select[data-k]"); if (!sel) return;
+  await fetch("/maint/status", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({key:sel.dataset.k, status:sel.value, note:"console"})}); qSel = sel.dataset.k; await loadQueue(); });
 
 /* ---------- start ---------- */
 (async function(){

@@ -1,0 +1,60 @@
+{
+ "_note": "ILLUSTRATIVE ASSUMPTIONS for the PLANNING / SIMULATED solar farm planner. Replace with real numbers and real quotes before using for decisions.",
+ "farm": {
+  "mode": "area",
+  "acres": 40,
+  "aspect": 1.6,
+  "length_m": 800,
+  "width_m": 500
+ },
+ "grid": {
+  "rows": 14,
+  "cols": 22
+ },
+ "node": {
+  "max_blocks": 6,
+  "max_dist_m": 90
+ },
+ "lora": {
+  "range_m": 1500,
+  "obstructed": false,
+  "obstructed_factor": 0.3
+ },
+ "gateways": {
+  "mode": "auto",
+  "count": 1,
+  "redundant": false
+ },
+ "budget_inr": null,
+ "obstacles": [],
+ "prices_inr": {
+  "node": 2500,
+  "sensors": 600,
+  "enclosure": 400,
+  "installation": 500,
+  "power": 900,
+  "gateway": 9000,
+  "gateway_installation": 2000,
+  "gateway_power": 3000,
+  "maintenance_node_year": 300,
+  "maintenance_gateway_year": 1000
+ },
+ "kwp_per_block": 0.5,
+ "maintenance": {
+  "weights": {
+   "severity": 1.0,
+   "duration": 0.3,
+   "recurrence": 0.3,
+   "impact": 1.0,
+   "evidence": 0.6
+  },
+  "floor": 0.15,
+  "duration_half_life_h": 12,
+  "impact_inr_cap": 60,
+  "categories": {
+   "critical": 60,
+   "high": 42,
+   "medium": 25
+  }
+ }
+}
