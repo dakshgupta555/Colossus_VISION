@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SuryaNidaan: Digital Twin and Health</title>
+<script src="/static/plotly.min.js"></script>
+<script type="importmap">{"imports":{"three":"/vendor/three.module.js","three/addons/":"/vendor/"}}</script>
+<style>
+:root{
+  --bg:#F3F5F9; --paper:#fff; --ink:#0F1F3D; --ink2:#3A4A66; --muted:#69758C; --line:#DFE4EC; --line2:#EDF0F5;
+  --ok:#1E9E5A; --ok-soft:#E4F5EC; --warn:#E39B00; --warn-soft:#FDF3D9; --bad:#D03B2A; --bad-soft:#FBE9E6; --off:#8A94A0; --off-soft:#EEF0F3;
+  --navy:#0F1F3D; --blue:#2A5BD7; --teal:#0E7C86; --violet:#6B4FBB;
+  --font:"Avenir Next","Segoe UI Variable Text","Segoe UI","Noto Sans","Kohinoor Devanagari","Noto Sans Devanagari","Noto Sans Kannada","Kannada Sangam MN",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--font)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--blue);text-decoration:none;font-weight:600} a:hover{text-decoration:underline}
+.small{font-size:13px;color:var(--muted)}
+h2{font-size:17px;margin:0 0 4px} h3{font-size:14px;margin:0 0 4px}
+
+/* ---------- top bar ---------- */
+.bar{min-height:56px;background:var(--paper);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 20px;position:sticky;top:0;z-index:30}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px}
+.brand small{font-weight:500;color:var(--muted);font-size:13px}
+.chipn{padding:4px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-weight:600;color:var(--ink2)}
+.grow{flex:1}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--off);margin-right:6px}
+.dot.on{background:var(--ok)} .dot.off{background:var(--off)}
+.lang{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.lang button{border:0;background:var(--paper);padding:5px 10px;font-size:13px;font-weight:600;color:var(--muted)}
+.lang button.on{background:var(--navy);color:#fff}
+#simBanner{position:sticky;top:56px;z-index:25;background:repeating-linear-gradient(135deg,#EFE9FB,#EFE9FB 10px,#E6DDF7 10px,#E6DDF7 20px);color:#3E2A82;border-bottom:1px solid #CFC1EE;padding:8px 20px;font-weight:700;text-align:center}
+#offBanner{background:var(--off-soft);color:#3A4452;border-bottom:1px solid var(--line);padding:8px 20px;font-weight:700;text-align:center}
+
+/* ---------- layout ---------- */
+main{max-width:1240px;margin:0 auto;padding:16px 20px 48px;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:7px 14px;font-weight:600;font-size:14px}
+.btn.dark{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+
+/* ---------- badges ---------- */
+.bdg{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.4px;padding:2px 7px;border-radius:4px;vertical-align:middle;white-space:nowrap;border:1px solid transparent}
+.bdg-REAL{background:var(--navy);color:#fff}
+.bdg-CALIBRATED{background:var(--teal);color:#fff}
+.bdg-PROVISIONAL{background:#fff;color:var(--ink2);border:1px dashed #8C97AB}
+.bdg-SIMULATED{background:var(--violet);color:#fff}
+.bdg-PHYSICS{background:#E8EEFC;color:var(--blue);border-color:#C5D3F6}
+
+/* ---------- hero ---------- */
+#hero{display:grid;grid-template-columns:1.15fr 1fr;gap:20px;padding:0;overflow:hidden}
+#twinWrap{position:relative;min-height:440px;background:linear-gradient(180deg,#EAF0FA 0%,#F7F9FD 70%);border-right:1px solid var(--line2)}
+#twin3d{position:absolute;inset:0}#twinSvgWrap{position:absolute;inset:0 0 46px 0}
+#twin3d canvas{display:block;width:100%;height:100%}
+#twinSvgWrap svg{width:100%;height:100%}
+#twinLabels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.ldrlab{position:absolute;left:0;top:0;font-size:11.5px;font-weight:700;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:4px;padding:1px 5px;white-space:nowrap}
+#twinCap{position:absolute;left:14px;right:14px;bottom:10px;margin:0;font-size:12.5px;color:var(--ink2);background:rgba(255,255,255,.85);border-radius:6px;padding:5px 8px}
+#twinHint{position:absolute;left:14px;top:10px;font-size:12px;color:var(--muted)}
+#heroInfo{padding:20px 22px 18px 4px;display:flex;flex-direction:column;gap:12px}
+.cond{display:flex;align-items:center;gap:16px}
+.ring{width:118px;height:118px;flex:none;position:relative}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .v{position:absolute;inset:0;display:grid;place-items:center;text-align:center;line-height:1.1}
+.ring .v b{font-size:34px} .ring .v span{font-size:11px;color:var(--muted)}
+.cw{font-size:26px;font-weight:800;line-height:1.15}
+.st-healthy{color:var(--ok)} .st-attention{color:var(--warn)} .st-critical{color:var(--bad)} .st-nodata,.st-offline,.st-setup{color:var(--off)}
+.pill{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:#F7F9FC;color:var(--ink2)}
+.pill.healthy{background:var(--ok-soft);border-color:#BBE3CD;color:#14703F}
+.pill.attention{background:var(--warn-soft);border-color:#EFD594;color:#8A5E00}
+.pill.critical{background:var(--bad-soft);border-color:#F0C3BC;color:#9C2A1D}
+.pill.grey{background:var(--off-soft);color:#4A5461}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0;font-size:13.5px}
+.meta dt{color:var(--muted);font-weight:600} .meta dd{margin:0}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.meter .k{font-size:12px;color:var(--muted);font-weight:600;display:flex;justify-content:space-between}
+.meter .bar2{height:6px;background:var(--line2);border-radius:3px;overflow:hidden;margin-top:3px}
+.meter .bar2 i{display:block;height:100%;background:var(--blue)}
+.factors{margin:0;padding:0;list-style:none;font-size:13.5px;color:var(--ink2)}
+.factors li{padding:2px 0 2px 14px;position:relative}.factors li:before{content:"";position:absolute;left:2px;top:10px;width:6px;height:6px;border-radius:50%;background:var(--muted)}
+
+/* ---------- sections ---------- */
+.modebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.simctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.simctl .btn.on{background:var(--violet);border-color:var(--violet)}
+.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:10px 0 6px}
+.tile{border:1px solid var(--line2);border-radius:10px;padding:10px 12px;background:#FBFCFE}
+.tile .k{font-size:12px;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;gap:6px}
+.tile .v{font-size:24px;font-weight:800;line-height:1.2}.tile .v small{font-size:13px;color:var(--ink2);font-weight:600}
+.tile .s{font-size:12px;color:var(--muted)}
+.tile.stale .v{color:var(--off)}
+#chV,#chI,#chP{height:150px} #chSession{height:200px} #chSweep{height:280px}
+.bars{display:flex;flex-direction:column;gap:7px;margin:8px 0}
+.bar-r{display:grid;grid-template-columns:170px 1fr 52px;gap:10px;align-items:center;font-size:14px}
+.bar-r .t{height:14px;background:var(--line2);border-radius:7px;overflow:hidden}.bar-r .t i{display:block;height:100%;background:#9FB4E6;border-radius:7px;transition:width .5s}
+.bar-r.top .t i{background:var(--blue)}.bar-r.top b{font-weight:800}
+.bar-r.na{color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+ul.ev{margin:4px 0 0;padding:0 0 0 18px;font-size:13.5px;color:var(--ink2)}
+.cards4{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:8px}
+.wcard{border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.wcard .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.wcard .pc{font-weight:800;font-size:18px}
+.wcard dl{margin:8px 0 0;font-size:13.5px}.wcard dt{font-size:12px;font-weight:700;color:var(--muted);margin-top:6px}.wcard dd{margin:0;color:var(--ink2)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:12.5px;text-align:left;color:var(--muted);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line2)}
+th.n,td.n{text-align:right}
+.money{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:8px 0}
+.alist{margin:6px 0 0;padding:0;list-style:none;font-size:13.5px}.alist li{padding:7px 0;border-top:1px solid var(--line2)}
+details.card>summary{cursor:pointer;font-weight:700;font-size:16px}
+.form{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 12px;margin-top:10px}
+.form label{font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.form input,.form select{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;font-size:14px;font-weight:600}
+.setup3{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;background:#F5F7FB;border:1px solid var(--line2);border-radius:6px;padding:2px 7px}
+pre{background:#F5F7FB;border:1px solid var(--line2);border-radius:8px;padding:10px;font-size:12px;overflow:auto;max-height:260px;margin:6px 0 0}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:9px 16px;border-radius:8px;font-weight:600;z-index:50;opacity:0;pointer-events:none;transition:opacity .25s}
+.toast.show{opacity:1}
+@media (max-width:900px){
+  #hero{grid-template-columns:1fr}#twinWrap{min-height:340px;border-right:0;border-bottom:1px solid var(--line2)}#heroInfo{padding:6px 16px 16px}
+  .tiles{grid-template-columns:1fr 1fr}.two,.setup3,.money{grid-template-columns:1fr}.form{grid-template-columns:1fr 1fr}
+  .bar-r{grid-template-columns:110px 1fr 46px}.bar{padding:8px 14px}main{padding:12px 14px 40px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="none" stroke="#E39B00" stroke-width="2.4"/><path d="M5 19 C 10 19, 12 18, 14.5 15 S 18 8, 23 8" fill="none" stroke="#0F1F3D" stroke-width="2.2"/></svg>
+    SuryaNidaan <small data-t="twin.sub"></small>
+  </div>
+  <span class="chipn" id="nodeChip">SN-001</span>
+  <span class="small"><i class="dot" id="connDot"></i><span id="connTxt"></span></span>
+  <span id="srcBadge"></span>
+  <span class="small" id="updTxt"></span>
+  <div class="grow"></div>
+  <a href="/console" data-t="nav.installer"></a>
+  <div class="lang" id="lang" role="group" aria-label="Language"></div>
+</header>
+<div id="simBanner" hidden data-t="sim.banner"></div>
+<div id="offBanner" hidden></div>
+
+<main>
+  <!-- ======================= HERO ======================= -->
+  <section class="card" id="hero">
+    <div id="twinWrap">
+      <div id="twin3d"></div>
+      <div id="twinSvgWrap" hidden></div>
+      <div id="twinLabels"></div>
+      <div id="twinHint" data-t="twin.drag"></div>
+      <p id="twinCap"></p>
+    </div>
+    <div id="heroInfo">
+      <div class="cond">
+        <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#EDF0F5" stroke-width="11"/><circle id="ringArc" cx="60" cy="60" r="52" fill="none" stroke="#8A94A0" stroke-width="11" stroke-linecap="round" stroke-dasharray="0 327" style="transition:stroke-dasharray .6s,stroke .6s"/></svg>
+          <div class="v"><div><b class="num" id="scoreNum">-</b><br><span data-t="score.title"></span></div></div></div>
+        <div>
+          <div class="cw" id="condWord"></div>
+          <div id="condSent" style="color:var(--ink2);margin-top:2px"></div>
+          <div class="small" id="trendTxt" style="margin-top:4px"></div>
+        </div>
+      </div>
+      <div class="row" id="chips"></div>
+      <div id="setupHint" hidden class="card" style="background:#F7F9FD;padding:10px 12px">
+        <b data-t="live.guide.title"></b>
+        <div class="small" style="margin:3px 0 6px"><span data-t="live.guide.1"></span><br><span data-t="live.guide.2"></span><br><span data-t="live.guide.3"></span></div>
+        <button class="btn dark" id="setBase1" data-t="live.base.btn"></button>
+      </div>
+      <dl class="meta">
+        <dt data-t="meta.last"></dt><dd id="mLast">-</dd>
+        <dt data-t="meta.conn"></dt><dd id="mConn">-</dd>
+        <dt data-t="meta.src"></dt><dd id="mSrc">-</dd>
+      </dl>
+      <div class="meters">
+        <div class="meter"><div class="k"><span data-t="meter.quality"></span><span id="qNum">-</span></div><div class="bar2"><i id="qBar" style="width:0"></i></div></div>
+        <div class="meter"><div class="k"><span data-t="meter.certainty"></span><span id="cNum">-</span></div><div class="bar2"><i id="cBar" style="width:0"></i></div></div>
+      </div>
+      <div><h3 data-t="factors.title"></h3><ul class="factors" id="factors"></ul></div>
+    </div>
+  </section>
+
+  <!-- ======================= MODE / SIMULATION ======================= -->
+  <section class="card">
+    <div class="modebar">
+      <div class="row"><button class="btn on" id="mLive" data-t="twin.mode.live"></button><button class="btn" id="mSim" data-t="twin.mode.sim"></button></div>
+      <span class="small" id="modeNote"></span>
+    </div>
+    <div id="simCtl" hidden>
+      <div class="simctl" id="simBtns">
+        <button class="btn" data-p="healthy" data-t="p.healthy"></button><button class="btn" data-p="soiling" data-t="p.soiling"></button>
+        <button class="btn" data-p="shade" data-t="p.shade"></button><button class="btn" data-p="rs" data-t="p.rs"></button>
+        <button class="btn" data-p="bypass" data-t="p.bypass"></button>
+        <label class="small" style="margin-left:8px"><span data-t="sim.sev"></span> <input id="simSev" type="range" min="10" max="90" value="50" style="vertical-align:middle;width:140px"> <b id="simSevN" class="num"></b></label>
+        <button class="btn dark" id="simBack" data-t="sim.back"></button>
+      </div>
+      <p class="small" style="margin:6px 0 0" data-t="sim.note"></p>
+    </div>
+  </section>
+
+  <!-- ======================= LIVE PERFORMANCE ======================= -->
+  <section class="card" id="perf">
+    <div class="row"><h2 data-t="perf.title"></h2><span id="perfSrc"></span></div>
+    <div class="tiles">
+      <div class="tile" id="tV"><div class="k"><span data-t="perf.v"></span><span id="bV"></span></div><div class="v num" id="vV">-</div><div class="s" id="sV"></div></div>
+      <div class="tile" id="tI"><div class="k"><span data-t="perf.i"></span><span id="bI"></span></div><div class="v num" id="vI">-</div><div class="s" id="sI"></div></div>
+      <div class="tile" id="tP"><div class="k"><span data-t="perf.p"></span><span id="bP"></span></div><div class="v num" id="vP">-</div><div class="s num" id="sP"></div></div>
+      <div class="tile" id="tL"><div class="k"><span data-t="perf.light"></span><span id="bL"></span></div><div class="v num" id="vL">-</div><div class="s" id="sL"></div></div>
+      <div class="tile" id="tT"><div class="k"><span data-t="perf.temp"></span><span id="bT"></span></div><div class="v num" id="vT">-</div><div class="s" id="sT"></div></div>
+    </div>
+    <div id="liveCharts">
+      <h3 data-t="perf.charts"></h3>
+      <div id="chV"></div><div id="chI"></div><div id="chP"></div>
+      <h3 style="margin-top:10px" data-t="perf.session"></h3>
+      <div id="chSession"></div>
+    </div>
+    <div id="simChart" hidden><h3 data-t="perf.sweep"></h3><div id="chSweep"></div></div>
+  </section>
+
+  <!-- ======================= DIAGNOSTIC INTELLIGENCE ======================= -->
+  <section class="card" id="dx">
+    <div class="row"><h2 data-t="dx.title"></h2><span id="dxSrc"></span><div class="grow"></div><span id="certBadge"></span></div>
+    <p class="small" id="dxSub" style="margin:2px 0 6px"></p>
+    <div id="dxBody">
+    <div class="bars" id="bars"></div>
+    <p class="small" id="dxSpread" hidden data-t="dx.spread"></p>
+    <div class="two" style="margin-top:10px">
+      <div><h3 data-t="dx.likely"></h3><div id="likely"></div></div>
+      <div><h3 data-t="dx.others"></h3><div id="others"></div></div>
+    </div>
+    <div style="margin-top:12px"><h3 data-t="dx.tell"></h3><ul class="ev" id="tell"></ul></div>
+    <p class="small" style="margin:8px 0 0" data-t="cert.help"></p>
+    <h2 style="margin-top:16px" data-t="cards.title"></h2>
+    <div class="cards4" id="wcards"></div>
+    </div>
+  </section>
+
+  <!-- ======================= EXPECTED VS MEASURED ======================= -->
+  <section class="card" id="exp">
+    <div class="row"><h2 data-t="exp.title"></h2></div>
+    <table><thead><tr><th data-t="exp.item"></th><th class="n" data-t="exp.expected"></th><th class="n" data-t="exp.measured"></th><th data-t="exp.src"></th></tr></thead><tbody id="expRows"></tbody></table>
+    <p class="small" id="expBasis" style="margin:8px 0 0"></p>
+    <p class="small" id="expEquiv" style="margin:4px 0 0"></p>
+    <p class="small" id="expDs" style="margin:4px 0 0"></p>
+  </section>
+
+  <!-- ======================= MONEY AND ACTION ======================= -->
+  <section class="card" id="moneyCard">
+    <div class="row"><h2 data-t="money.title"></h2><span id="moneyBadge"></span><div class="grow"></div>
+      <label class="small"><span data-t="money.tariff"></span> <input id="tariff" type="number" step="0.5" min="1" value="6" style="width:62px;border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-weight:700"></label></div>
+    <div class="money">
+      <div class="tile"><div class="k" data-t="money.kwh"></div><div class="v num" id="mKwh">-</div></div>
+      <div class="tile"><div class="k" data-t="money.day"></div><div class="v num" id="mDay">-</div></div>
+      <div class="tile"><div class="k" data-t="money.year"></div><div class="v num" id="mYear">-</div></div>
+    </div>
+    <p class="small" id="mNote" style="margin:0 0 8px"></p>
+    <div class="two">
+      <div><h3 data-t="actions.title"></h3><ol class="ev" id="acts" style="font-size:14.5px"></ol></div>
+      <div><h3 data-t="alerts.recent"></h3><ul class="alist" id="alerts"></ul></div>
+    </div>
+  </section>
+
+  <!-- ======================= SETUP ======================= -->
+  <details class="card" id="setup">
+    <summary data-t="setup.title"></summary>
+    <div class="setup3" style="margin-top:12px">
+      <div>
+        <h3 data-t="base.title"></h3>
+        <p class="small" style="margin:0 0 6px"><span data-t="live.guide.1"></span><br><span data-t="live.guide.2"></span><br><span data-t="live.guide.3"></span></p>
+        <div class="row"><button class="btn dark" id="setBase2" data-t="live.base.btn"></button><span class="small" id="baseTxt"></span></div>
+        <h3 style="margin-top:16px" data-t="cal.title"></h3>
+        <p class="small" style="margin:0 0 6px" data-t="cal.help"></p>
+        <div class="row" style="margin-bottom:6px"><span class="small">Gain</span><b class="num" id="calGain">1</b><span class="small">Offset</span><b class="num" id="calOff">0</b><span id="calBadge"></span></div>
+        <p class="small" style="margin:0 0 6px" id="calDate"></p>
+        <p class="small" style="margin:0 0 6px" id="calIna"></p>
+        <div class="row"><input id="calMeter" type="number" step="0.01" min="0" style="width:120px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-weight:700" data-tph="cal.meter">
+          <button class="btn dark" id="calBtn" data-t="cal.btn"></button><button class="btn" id="calReset" data-t="cal.reset"></button></div>
+        <p class="small" style="margin:6px 0 0" data-t="cal.note"></p>
+      </div>
+      <div>
+        <h3 data-t="sens.title"></h3>
+        <table><tbody id="sensRows"></tbody></table>
+        <p class="small" style="margin:6px 0 0" data-t="sens.ldr.note"></p>
+      </div>
+    </div>
+    <h3 style="margin-top:16px" data-t="prof.title"></h3>
+    <div class="row"><label class="small"><span data-t="prof.select"></span> <select id="profSel"></select></label><span class="small" id="profTwin"></span></div>
+    <div class="form" id="profForm"></div>
+    <p class="small" id="profNote" style="margin:8px 0"></p>
+    <button class="btn dark" id="profSave" data-t="prof.save"></button>
+  </details>
+
+  <!-- ======================= ADVANCED ======================= -->
+  <details class="card" id="adv">
+    <summary data-t="adv.title"></summary>
+    <div class="two" style="margin-top:10px">
+      <div><h3 data-t="adv.raw"></h3><dl class="meta" id="advRaw"></dl></div>
+      <div><h3 data-t="adv.feat"></h3><dl class="meta" id="advFeat"></dl></div>
+    </div>
+    <h3 style="margin-top:12px" data-t="adv.assume"></h3>
+    <pre id="advAssume"></pre>
+  </details>
+</main>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+const FONT = () => ({family:getComputedStyle(document.body).fontFamily, size:12, color:"#3A4A66"});
+let STR = {en:{}}, LANGS = {en:"English"}, LANG = "en";
+try { LANG = localStorage.getItem("sn-lang") || "en"; } catch(e) {}
+let mode = "live", st = null, tele = null, simPreset = "healthy", simSeq = 1, twin = null, alerts = [], hist = [], lastHist = 0, calLive = null, profData = null, sensData = null;
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- translation ---------- */
+function T(key, p){
+  let s = (STR[LANG] && STR[LANG][key]) || STR.en[key] || key;
+  return s.replace(/\{(\w+)\}/g, (m,k) => { const v = p ? p[k] : undefined;
+    if (v && typeof v === "object" && v.key) return T(v.key, v.p); return v === undefined || v === null ? m : v; });
+}
+const say = o => (o && o.key) ? T(o.key, o.p) : "";
+const nf = (x,d=1) => (x==null||isNaN(x)) ? "-" : Number(x).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d});
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const clock = ts => ts ? new Date(ts*1000).toLocaleTimeString("en-IN",{hour12:false}) : "-";
+function applyStatic(){
+  document.querySelectorAll("[data-t]").forEach(el => el.textContent = T(el.dataset.t));
+  document.querySelectorAll("[data-tph]").forEach(el => el.placeholder = T(el.dataset.tph));
+  document.documentElement.lang = LANG;
+}
+function toast(t){ const e=$("toast"); e.textContent=t; e.classList.add("show"); clearTimeout(toast.t); toast.t=setTimeout(()=>e.classList.remove("show"),3400); }
+const post = (url, b) => fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});
+const BKEY = {REAL:"REAL", CALIBRATED:"CALIBRATED", PROVISIONAL:"PROVISIONAL", SIMULATED:"SIMULATED", "PHYSICS MODEL":"PHYSICS"};
+const badge = k => k ? `<span class="bdg bdg-${BKEY[k]||k}" title="${esc(T("badge."+k+".t"))}">${esc(T("badge."+k))}</span>` : "";
+
+/* ======================================================================= the digital twin */
+const COL = {healthy:0x1E9E5A, attention:0xE39B00, critical:0xD03B2A, nodata:0x8A94A0, offline:0x8A94A0, setup:0x8A94A0};
+const HEX = c => "#" + c.toString(16).padStart(6,"0");
+
+function regionCells(region, nx, ny){
+  const out = [];
+  for (let r=0;r<ny;r++) for (let c=0;c<nx;c++){ const top=r<ny/2, left=c<nx/2;
+    const hit = {"top-left":top&&left,"top-right":top&&!left,"bottom-left":!top&&left,"bottom-right":!top&&!left,"left":left,"right":!left}[region];
+    if (hit) out.push([c,r]); }
+  return out;
+}
+function cellOverlay(m){            // what gets painted ON the cells, from the view model
+  const nx = m.grid.x, ny = m.grid.y, shaded = [], regions = [];
+  if (m.sim && m.sim.shade_cells) m.sim.shade_cells.forEach(c => shaded.push(c));
+  (m.regions||[]).forEach(r => regionCells(r,nx,ny).forEach(c => regions.push(c)));
+  return {nx, ny, shaded, regions, dust:(m.sim&&m.sim.dust)||0};
+}
+
+async function makeTwin3D(container){
+  const THREE = await import("three");
+  const {OrbitControls} = await import("three/addons/OrbitControls.js");
+  const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true, preserveDrawingBuffer:true});
+  if (!renderer.getContext()) throw new Error("no webgl");
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1, 2));
+  container.appendChild(renderer.domElement);
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
+  camera.position.set(3.9, 1.1, 9.0);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.enablePan = false; controls.minDistance = 5.5; controls.maxDistance = 14;
+  controls.maxPolarAngle = Math.PI*0.62; controls.minPolarAngle = Math.PI*0.28; controls.target.set(0.55,-0.6,0);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+  const sunLight = new THREE.DirectionalLight(0xfff3d6, 1.1); sunLight.position.set(-4,5,6); scene.add(sunLight);
+  const rim = new THREE.PointLight(0xffffff, 0.0, 9); rim.position.set(1.5,-1.5,2.5); scene.add(rim);
+  const G = new THREE.Group(); scene.add(G);
+  let built = null;                                   // geometry depends on the grid size
+  const tint = new THREE.Color(COL.nodata), tintTarget = new THREE.Color(COL.nodata);
+  let lightNow = 0.3, lightTarget = 0.3, model = null, cellKey = "", glow = 0, tintOpacity = 0.2;
+  const mats = {};
+  const tex = {cells:null, canvas:null};
+
+  function canvasTex(w,h,draw){ const c=document.createElement("canvas"); c.width=w; c.height=h; draw(c.getContext("2d"),w,h); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
+  function build(nx, ny){
+    while (G.children.length) { const o = G.children.pop(); o.traverse && o.traverse(n => { n.geometry && n.geometry.dispose(); }); }
+    const long = 2.1, w = nx>=ny ? long : long*nx/ny, h = nx>=ny ? long*ny/nx : long;
+    built = {nx, ny, w, h};
+    const frameM = new THREE.MeshStandardMaterial({color:0xC5CCD8, metalness:0.92, roughness:0.32});
+    const back = new THREE.Mesh(new THREE.BoxGeometry(w+0.14,h+0.14,0.05), new THREE.MeshStandardMaterial({color:0x1C2433, roughness:0.7}));
+    G.add(back);
+    [[0,h/2+0.04,w+0.18,0.07],[0,-h/2-0.04,w+0.18,0.07],[-w/2-0.04,0,0.07,h+0.18],[w/2+0.04,0,0.07,h+0.18]].forEach(([x,y,sw,sh]) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sw,sh,0.08), frameM); m.position.set(x,y,0.012); G.add(m); });
+    // cells (painted on a canvas so single cells can be darkened, outlined or dusted)
+    const cw = Math.min(1024, nx*72), ch = Math.min(1024, ny*72);
+    tex.canvas = document.createElement("canvas"); tex.canvas.width = cw; tex.canvas.height = ch;
+    tex.cells = new THREE.CanvasTexture(tex.canvas); tex.cells.colorSpace = THREE.SRGBColorSpace; tex.cells.anisotropy = 4;
+    const cells = new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshStandardMaterial({map:tex.cells, roughness:0.38, metalness:0.1}));
+    cells.position.z = 0.027; G.add(cells);
+    mats.tint = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.2, depthWrite:false});
+    const tp = new THREE.Mesh(new THREE.PlaneGeometry(w,h), mats.tint); tp.position.z = 0.031; G.add(tp);
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshPhysicalMaterial({color:0xffffff, transparent:true, opacity:0.1, roughness:0.04, clearcoat:1, clearcoatRoughness:0.05, depthWrite:false}));
+    glass.position.z = 0.036; G.add(glass);
+    const shT = canvasTex(256,256,(x,W,H) => { const g=x.createLinearGradient(0,0,W,H); g.addColorStop(0.35,"rgba(255,255,255,0)"); g.addColorStop(0.5,"rgba(255,255,255,.9)"); g.addColorStop(0.65,"rgba(255,255,255,0)"); x.fillStyle=g; x.fillRect(0,0,W,H); });
+    shT.wrapS = THREE.RepeatWrapping; shT.repeat.set(1.6,1.6);
+    mats.shimmer = new THREE.MeshBasicMaterial({map:shT, transparent:true, opacity:0.07, blending:THREE.AdditiveBlending, depthWrite:false});
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(w,h), mats.shimmer); sh.position.z = 0.04; G.add(sh);
+    // junction box, cable, node
+    mats.jbox = new THREE.MeshStandardMaterial({color:0x2A3446, roughness:0.55, emissive:0x000000});
+    const jb = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.18,0.1), mats.jbox); jb.position.set(0,-h/2-0.17,0.0); G.add(jb);
+    const p0 = new THREE.Vector3(0.12,-h/2-0.27,0.0), p3 = new THREE.Vector3(w/2+0.72,-h/2-0.55,0.35);
+    const curve = new THREE.CatmullRomCurve3([p0, new THREE.Vector3(0.5,-h/2-0.62,0.1), new THREE.Vector3(w/2*0.55,-h/2-0.7,0.25), p3]);
+    const cable = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.022, 8), new THREE.MeshStandardMaterial({color:0x111827, roughness:0.6})); G.add(cable);
+    mats.joint = new THREE.MeshStandardMaterial({color:0x3C4658, emissive:0x000000, roughness:0.5});
+    const jt = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.09,0.09), mats.joint); jt.position.copy(curve.getPoint(0.55)); G.add(jt);
+    const nodeBox = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.38,0.3), new THREE.MeshStandardMaterial({color:0x0F1F3D, roughness:0.45}));
+    nodeBox.position.set(w/2+0.9,-h/2-0.55,0.35); G.add(nodeBox);
+    const lab = canvasTex(128,64,(x,W,H) => { x.fillStyle="#0F1F3D"; x.fillRect(0,0,W,H); x.fillStyle="#fff"; x.font="bold 30px sans-serif"; x.textAlign="center"; x.textBaseline="middle"; x.fillText("SN-1",W/2,H/2); });
+    const lp = new THREE.Mesh(new THREE.PlaneGeometry(0.5,0.24), new THREE.MeshBasicMaterial({map:lab})); lp.position.set(w/2+0.9,-h/2-0.55,0.505); G.add(lp);
+    mats.led = new THREE.MeshStandardMaterial({color:0x8A94A0, emissive:0x8A94A0, emissiveIntensity:0.8});
+    const led = new THREE.Mesh(new THREE.SphereGeometry(0.035,16,16), mats.led); led.position.set(w/2+1.12,-h/2-0.4,0.51); G.add(led);
+    // ground shadow
+    const gr = new THREE.Mesh(new THREE.CircleGeometry(2.6,48), new THREE.MeshBasicMaterial({map:canvasTex(128,128,(x,W,H)=>{const g=x.createRadialGradient(W/2,H/2,4,W/2,H/2,W/2); g.addColorStop(0,"rgba(15,31,61,.22)"); g.addColorStop(1,"rgba(15,31,61,0)"); x.fillStyle=g; x.fillRect(0,0,W,H);}), transparent:true, depthWrite:false}));
+    gr.rotation.x = -Math.PI/2; gr.position.set(0.5,-h/2-1.15,0.2); G.add(gr);
+    // sun and beam (follow the measured light)
+    mats.sun = new THREE.SpriteMaterial({map:canvasTex(128,128,(x,W,H)=>{const g=x.createRadialGradient(W/2,H/2,2,W/2,H/2,W/2); g.addColorStop(0,"rgba(255,244,200,1)"); g.addColorStop(0.35,"rgba(255,214,102,.65)"); g.addColorStop(1,"rgba(255,214,102,0)"); x.fillStyle=g; x.fillRect(0,0,W,H);}), transparent:true, depthWrite:false});
+    const sun = new THREE.Sprite(mats.sun); sun.position.set(-w/2-0.9,h/2+0.85,1.4); G.add(sun); built.sun = sun;
+    mats.beam = new THREE.MeshBasicMaterial({color:0xFFE9A8, transparent:true, opacity:0.08, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide});
+    const dir = new THREE.Vector3(0,0,0.04).sub(sun.position), len = dir.length();
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,h)*0.62, len, 24, 1, true), mats.beam);
+    beam.position.copy(sun.position).addScaledVector(dir, 0.5); beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0), dir.clone().normalize()); G.add(beam); built.beam = beam;
+    // LDR dots
+    built.dots = {}; built.jt = jt; built.jb = jb;
+    G.rotation.y = -0.32; G.rotation.x = 0.04;
+    cellKey = "";
+  }
+
+  function paint(o){
+    const c = tex.canvas, x = c.getContext("2d"), W = c.width, H = c.height, cw = W/o.nx, chh = H/o.ny;
+    x.fillStyle = "#DDE4EF"; x.fillRect(0,0,W,H);
+    for (let r=0;r<o.ny;r++) for (let q=0;q<o.nx;q++){
+      const X=q*cw, Y=r*chh, g=x.createLinearGradient(X,Y,X+cw,Y+chh); g.addColorStop(0,"#1F4590"); g.addColorStop(1,"#142B63");
+      x.fillStyle=g; const i=3; x.beginPath(); x.roundRect ? x.roundRect(X+i,Y+i,cw-2*i,chh-2*i,5) : x.rect(X+i,Y+i,cw-2*i,chh-2*i); x.fill();
+      x.strokeStyle="rgba(200,214,240,.55)"; x.lineWidth=1.4;
+      for (let b=1;b<=3;b++){ const bx=X+i+(cw-2*i)*b/4; x.beginPath(); x.moveTo(bx,Y+i); x.lineTo(bx,Y+chh-i); x.stroke(); }
+      x.strokeStyle="rgba(200,214,240,.10)"; x.lineWidth=1;
+      for (let f=1;f<10;f++){ const fy=Y+i+(chh-2*i)*f/10; x.beginPath(); x.moveTo(X+i,fy); x.lineTo(X+cw-i,fy); x.stroke(); }
+    }
+    o.shaded.forEach(([q,r]) => { x.fillStyle="rgba(6,10,22,.66)"; x.fillRect(q*cw+2,r*chh+2,cw-4,chh-4);
+      x.strokeStyle="rgba(255,255,255,.12)"; for (let k=-chh;k<cw;k+=9){ x.beginPath(); x.moveTo(q*cw+k,r*chh+chh); x.lineTo(q*cw+k+chh,r*chh); x.stroke(); } });
+    if (o.regions.length){ o.regions.forEach(([q,r]) => { x.fillStyle="rgba(6,10,22,.5)"; x.fillRect(q*cw+2,r*chh+2,cw-4,chh-4); });
+      x.strokeStyle="#E39B00"; x.lineWidth=5; const set=new Set(o.regions.map(a=>a.join(",")));
+      o.regions.forEach(([q,r]) => { const ed=(dq,dr,x1,y1,x2,y2)=>{ if(!set.has((q+dq)+","+(r+dr))){ x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); } };
+        ed(0,-1,q*cw,r*chh,(q+1)*cw,r*chh); ed(0,1,q*cw,(r+1)*chh,(q+1)*cw,(r+1)*chh); ed(-1,0,q*cw,r*chh,q*cw,(r+1)*chh); ed(1,0,(q+1)*cw,r*chh,(q+1)*cw,(r+1)*chh); }); }
+    if (o.dust > 0){ x.fillStyle=`rgba(156,116,58,${Math.min(0.7,o.dust*1.1)})`; x.fillRect(0,0,W,H);
+      let s=7; for (let k=0;k<900;k++){ s=(s*16807)%2147483647; const a=s/2147483647; s=(s*16807)%2147483647; const b=s/2147483647; x.fillStyle=`rgba(120,86,40,${0.12+o.dust*0.3})`; x.fillRect(a*W,b*H,2.5,2.5); } }
+    tex.cells.needsUpdate = true;
+  }
+
+  function size(){ const w = container.clientWidth, h = container.clientHeight; if (!w || !h) return; renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(size).observe(container); size();
+
+  const labels = $("twinLabels"), v3 = new THREE.Vector3();
+  function syncLabels(){
+    if (!built || !model) return;
+    const ids = new Set();
+    (model.ldr||[]).forEach(d => { ids.add(d.id);
+      let e = built.dots[d.id];
+      if (!e){ const m = new THREE.Mesh(new THREE.SphereGeometry(0.055,16,16), new THREE.MeshStandardMaterial({color:0xFFFFFF, emissive:0xffffff, emissiveIntensity:0.5}));
+        G.add(m); const l = document.createElement("div"); l.className = "ldrlab"; labels.appendChild(l); e = built.dots[d.id] = {m, l}; }
+      const p = d.pos || [0,0]; e.m.position.set(p[0]*built.w/2*(d.role==="reference"?1:0.86), p[1]*built.h/2*0.86, 0.07);
+      e.m.material.color.set(d.rel_pct < 75 ? 0xE39B00 : 0x1E9E5A); e.m.material.emissive.set(d.rel_pct < 75 ? 0xE39B00 : 0x1E9E5A);
+      e.l.textContent = Math.round(d.rel_pct) + "%"; e.l.style.display = ""; e.l.dataset.id = d.id; });
+    Object.keys(built.dots).forEach(id => { if (!ids.has(id)){ const e = built.dots[id]; G.remove(e.m); e.l.remove(); delete built.dots[id]; } });
+  }
+  function projectLabels(){
+    const W = renderer.domElement.clientWidth, H = renderer.domElement.clientHeight;
+    Object.values(built.dots).forEach(e => { e.m.getWorldPosition(v3); v3.project(camera); const x=(v3.x*0.5+0.5)*W, y=(-v3.y*0.5+0.5)*H; e.l.style.transform = `translate(${x+8}px,${y-9}px)`; e.l.style.display = v3.z>1 ? "none" : ""; });
+  }
+
+  let t0 = performance.now();
+  function frame(){
+    requestAnimationFrame(frame);
+    if (!built) return;
+    const t = (performance.now()-t0)/1000;
+    tint.lerp(tintTarget, 0.07); lightNow += (lightTarget-lightNow)*0.06;
+    mats.tint.color.copy(tint); mats.tint.opacity += (tintOpacity-mats.tint.opacity)*0.08;
+    mats.led.color.copy(tint); mats.led.emissive.copy(tint);
+    sunLight.intensity = 0.25 + 1.1*Math.min(1.3,lightNow); mats.sun.opacity = 0.15 + 0.85*Math.min(1,lightNow);
+    built.sun.scale.setScalar(0.7 + 0.8*Math.min(1,lightNow)); mats.beam.opacity = 0.01 + 0.05*Math.min(1,lightNow);
+    if (!REDUCED){ mats.shimmer.map.offset.x = ((t*0.025)%1); mats.shimmer.opacity = 0.05 + 0.035*Math.sin(t*0.8); }
+    const gl = model && model.sim ? (0.55 + 0.45*Math.sin(t*3)) : 0;
+    mats.joint.emissive.setHex(model && model.sim && model.sim.joint ? 0xD03B2A : 0x000000); mats.joint.emissiveIntensity = gl*1.4;
+    mats.jbox.emissive.setHex(model && model.sim && model.sim.diode ? 0xD03B2A : 0x000000); mats.jbox.emissiveIntensity = gl*1.4;
+    controls.update(); renderer.render(scene, camera); projectLabels();
+  }
+  requestAnimationFrame(frame);
+
+  return {kind:"webgl",
+    update(m){
+      model = m;
+      if (!built || built.nx !== m.grid.x || built.ny !== m.grid.y) build(m.grid.x, m.grid.y);
+      const o = cellOverlay(m), key = JSON.stringify(o); if (key !== cellKey){ cellKey = key; paint(o); }
+      tintTarget.setHex(COL[m.state] || COL.nodata); tintOpacity = (m.state==="nodata"||m.state==="offline"||m.state==="setup") ? 0.55 : 0.2;
+      lightTarget = m.light==null ? 0.2 : Math.max(0.05, m.light/100); syncLabels();
+    }};
+}
+
+/* ---- 2D fallback if WebGL is not available: same view model, drawn as SVG ---- */
+function makeTwinSvg(wrap){
+  wrap.hidden = false;
+  return {kind:"svg",
+    update(m){
+      const o = cellOverlay(m), W = 520, H = 400, nx = o.nx, ny = o.ny, pw = 250, ph = pw*ny/nx, pxl = 120, pyt = 60, cw = pw/nx, ch = ph/ny, col = HEX(COL[m.state]||COL.nodata);
+      let s = `<svg viewBox="0 0 ${W} ${H}" role="img"><rect width="${W}" height="${H}" fill="none"/>`;
+      const lt = m.light==null ? 0.25 : Math.min(1,m.light/100);
+      s += `<circle cx="70" cy="42" r="${12+16*lt}" fill="#FFD666" opacity="${0.35+0.6*lt}"/>`;
+      s += `<rect x="${pxl-8}" y="${pyt-8}" width="${pw+16}" height="${ph+16}" rx="6" fill="#C5CCD8" stroke="#8C97AB"/>`;
+      for (let r=0;r<ny;r++) for (let c=0;c<nx;c++) s += `<rect x="${pxl+c*cw+2}" y="${pyt+r*ch+2}" width="${cw-4}" height="${ch-4}" rx="3" fill="#1F4590"/>`;
+      o.shaded.forEach(([c,r]) => s += `<rect x="${pxl+c*cw+2}" y="${pyt+r*ch+2}" width="${cw-4}" height="${ch-4}" rx="3" fill="#060A16" opacity=".66"/>`);
+      o.regions.forEach(([c,r]) => s += `<rect x="${pxl+c*cw+1}" y="${pyt+r*ch+1}" width="${cw-2}" height="${ch-2}" fill="#060A16" opacity=".5" stroke="#E39B00" stroke-width="2"/>`);
+      if (o.dust > 0) s += `<rect x="${pxl-4}" y="${pyt-4}" width="${pw+8}" height="${ph+8}" fill="#9C743A" opacity="${Math.min(0.7,o.dust*1.1)}"/>`;
+      s += `<rect x="${pxl-8}" y="${pyt-8}" width="${pw+16}" height="${ph+16}" rx="6" fill="${col}" opacity="${["nodata","offline","setup"].includes(m.state) ? 0.6 : 0.2}"/>`;
+      const jb = m.sim && m.sim.diode ? "#D03B2A" : "#2A3446", jt = m.sim && m.sim.joint ? "#D03B2A" : "#3C4658";
+      s += `<rect x="${pxl+pw/2-22}" y="${pyt+ph+12}" width="44" height="22" rx="3" fill="${jb}"/>`;
+      s += `<path d="M${pxl+pw/2} ${pyt+ph+34} C ${pxl+pw/2} ${pyt+ph+80}, ${pxl+pw+10} ${pyt+ph+40}, ${pxl+pw+70} ${pyt+ph+60}" stroke="#111827" stroke-width="4" fill="none"/>`;
+      s += `<rect x="${pxl+pw+10}" y="${pyt+ph+40}" width="22" height="12" fill="${jt}"/>`;
+      s += `<rect x="${pxl+pw+66}" y="${pyt+ph+42}" width="64" height="38" rx="4" fill="#0F1F3D"/><text x="${pxl+pw+98}" y="${pyt+ph+66}" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">SN-1</text><circle cx="${pxl+pw+122}" cy="${pyt+ph+49}" r="4" fill="${col}"/>`;
+      (m.ldr||[]).forEach(d => { const p = d.pos||[0,0], x = pxl+pw/2+p[0]*pw/2*(d.role==="reference"?1:0.86), y = pyt+ph/2-p[1]*ph/2*0.86, c2 = d.rel_pct<75?"#E39B00":"#1E9E5A";
+        s += `<circle cx="${x}" cy="${y}" r="6" fill="${c2}" stroke="#fff" stroke-width="2"/><text x="${x+9}" y="${y+4}" font-size="12" font-weight="700" fill="#0F1F3D">${Math.round(d.rel_pct)}%</text>`; });
+      wrap.innerHTML = s + "</svg>";
+    }};
+}
+
+async function initTwin(){
+  const note = $("twinHint");
+  try { twin = await makeTwin3D($("twin3d")); }
+  catch(e) { $("twin3d").hidden = true; twin = makeTwinSvg($("twinSvgWrap")); note.textContent = T("twin.fallback"); note.dataset.t = "twin.fallback"; }
+  if (st) twin.update(st.twin_model);
+}
+
+/* ======================================================================= render */
+const STATE_PILL = {healthy:"healthy", attention:"attention", critical:"critical"};
+function twinModel(s){ return Object.assign({}, s.twin, {state:s.state}); }
+
+function render(){
+  if (!st) return;
+  st.twin_model = twinModel(st);
+  const live = st.mode === "live", off = live && !st.online;
+  // top bar
+  $("nodeChip").textContent = st.node_id;
+  $("srcBadge").innerHTML = badge(live ? "REAL" : "SIMULATED");
+  $("connDot").className = "dot " + (live && st.online ? "on" : "off");
+  $("connTxt").textContent = live ? (st.online ? T("conn.online") : (st.last_ts ? T("conn.offline") : T("conn.none"))) : T("conn.sim");
+  $("updTxt").textContent = T("lastupd",{t:clock(live ? st.last_ts : st.now)});
+  $("simBanner").hidden = live;
+  $("offBanner").hidden = !off;
+  if (off) $("offBanner").textContent = st.last_ts ? T("offline.banner",{t:clock(st.last_ts)}) : T("offline.never");
+  // hero
+  const h = st.health, state = st.state;
+  $("scoreNum").textContent = h ? h.score : "-";
+  $("ringArc").setAttribute("stroke-dasharray", `${h ? 327*h.score/100 : 0} 327`);
+  $("ringArc").setAttribute("stroke", HEX(COL[state]||COL.nodata));
+  $("condWord").className = "cw st-" + state; $("condWord").textContent = T(st.status_key);
+  const top = st.diagnosis && st.diagnosis.top;
+  let sent = T("hero." + state);
+  if (st.diagnosis && state !== "healthy" && h) sent += " " + T("hero.cause",{x:T("f."+top)});
+  $("condSent").textContent = sent;
+  $("trendTxt").textContent = h && h.previous != null ? `${T("score.prev",{x:h.previous})} · ${{up:"↑ "+T("trend.up"),down:"↓ "+T("trend.down"),flat:"→ "+T("trend.flat")}[h.trend]||""}` : (h ? "" : T("score.none"));
+  const chips = [];
+  const rs = st.reading;
+  if (rs && rs.state && !off) chips.push(`<span class="pill">${esc(T("live.st."+rs.state))}${rs.settled||rs.state==="sweep" ? "" : " · "+esc(T("live.st.settling"))}</span>`);
+  if (h && h.provisional) chips.push(badge("PROVISIONAL"));
+  if (st.diagnosis) chips.push(`<span class="pill ${st.diagnosis.certainty.level==="high"?"healthy":st.diagnosis.certainty.level==="moderate"?"attention":"grey"}">${esc(T("meter.certainty"))}: ${esc(T("cert."+st.diagnosis.certainty.level))}</span>`);
+  $("chips").innerHTML = chips.join(" ");
+  $("setupHint").hidden = !(live && st.online && state === "setup");
+  $("mLast").textContent = live ? (st.last_ts ? `${clock(st.last_ts)}${off ? "" : " (" + Math.round(st.age_s) + " s)"}` : "-") : clock(st.now);
+  $("mConn").textContent = live ? (st.online ? T("meta.rate",{x:nf(st.rate,1)}) : T("conn.offline")) : T("conn.sim");
+  $("mSrc").innerHTML = badge(live ? "REAL" : "SIMULATED") + " " + (live ? "" : "");
+  const q = st.quality;
+  $("qNum").textContent = q ? q.score + "%" : "-"; $("qBar").style.width = (q ? q.score : 0) + "%";
+  const cm = st.diagnosis ? Math.round(Math.min(1, st.diagnosis.certainty.margin/0.5)*100) : 0;
+  $("cNum").textContent = st.diagnosis ? T("cert."+st.diagnosis.certainty.level) : "-"; $("cBar").style.width = cm + "%";
+  $("factors").innerHTML = h && h.factors.length ? h.factors.map(f => `<li>${esc(T(f.key,f.p))}</li>`).join("") : `<li>${esc(h ? T("factors.none") : T("score.none"))}</li>`;
+  // twin
+  const cap = st.twin.caption ? T(st.twin.caption) : "";
+  $("twinCap").textContent = off ? T("twin.cap.off") : cap; $("twinCap").hidden = !(cap || off);
+  if (twin) twin.update(st.twin_model);
+  renderPerf(); renderDx(); renderExp(); renderMoney(); renderAdv();
+}
+
+function fmtI(x){ return x==null ? "-" : (Math.abs(x) < 0.15 ? "0.0" : nf(x,2)); }
+function renderPerf(){
+  const live = st.mode === "live", off = live && !st.online, r = st.reading, b = st.badges, S = st.sensors;
+  $("perfSrc").innerHTML = badge(live ? "REAL" : "SIMULATED");
+  const fill = (id, bid, val, unit, badgeK, sub) => { $("v"+id).innerHTML = val==null ? "-" : `${val} <small>${unit}</small>`; $("b"+id).innerHTML = val==null ? "" : badge(badgeK); $("s"+id).textContent = sub||""; $("t"+id).classList.toggle("stale", off && val!=null); };
+  const stale = off ? T("tile.stale") : "";
+  if (r && (live || st.mode==="sim")) {
+    fill("V","V", r.v==null?null:nf(r.v,2), "V", b.voltage, off ? stale : (st.mode==="sim" ? T("perf.mpp") : ""));
+    fill("I","I", fmtI(r.ma_cal), "mA", b.current, off ? stale : (st.mode==="sim" ? T("perf.mpp") : (Math.abs(r.ma_cal) < 0.15 ? T("perf.noise") : "")));
+    $("vP").innerHTML = r.p_mw==null ? "-" : `${nf(r.p_mw,2)} <small>mW</small>`; $("bP").innerHTML = badge(b.current);
+    $("sP").textContent = r.p_mw==null ? "" : `${nf(r.p_mw/1000, 4)} W${off ? " · "+stale : ""}`; $("tP").classList.toggle("stale", off);
+  } else { ["V","I","P"].forEach(k => { $("v"+k).textContent="-"; $("b"+k).innerHTML=""; $("s"+k).textContent=""; }); }
+  const lp = S.light_pct;
+  $("vL").innerHTML = lp==null || off ? "-" : `${nf(lp,0)} <small>%</small>`; $("bL").innerHTML = lp==null || off ? "" : badge(S.light_src==="ldr" ? "REAL" : (S.light_src==="sim" ? "SIMULATED" : b.current));
+  $("sL").textContent = lp==null || off ? "" : (S.light_src==="ldr" ? T("perf.light.ldr") : S.light_src==="sim" ? T("perf.light.sim") : T("perf.light.cur"));
+  $("vT").innerHTML = S.temperature_fitted && !off ? `${nf(S.temperature,1)} <small>°C</small>` : `<small style="font-size:16px">${esc(T("notfitted"))}</small>`;
+  $("bT").innerHTML = S.temperature_fitted && !off ? badge(b.temperature) : ""; $("sT").textContent = S.temperature_fitted ? "" : T("temp.nosensor");
+  $("liveCharts").hidden = !live; $("simChart").hidden = live;
+  if (live) { drawLiveCharts(); } else if (st.sweep) drawSweep();
+}
+
+function drawLiveCharts(){
+  if (!tele) return;
+  const font = FONT(), now = tele.now, g = (st.calibration && st.calibration.gain) || 1, o = (st.calibration && st.calibration.offset) || 0;
+  const rs = tele.readings.filter(r => r.source==="real" && now - r.ts <= 300);
+  const X = rs.map(r => new Date(r.ts*1000)), rng = [new Date((now-300)*1000), new Date(now*1000)];
+  const line = (y, col) => [{x:X, y, mode:"lines", line:{color:col, width:1.8}, hovertemplate:"%{y:.3f}<extra></extra>"}];
+  const lay = (title, last) => ({margin:{l:58,r:12,t:4,b:last?30:6}, paper_bgcolor:"#fff", plot_bgcolor:"#fff", font, showlegend:false,
+    xaxis:{range:rng, tickformat:"%H:%M:%S", gridcolor:"#EDF0F5", showticklabels:!!last, tickfont:font}, yaxis:{title:{text:title, font}, gridcolor:"#EDF0F5", zeroline:false, tickfont:font}, hoverlabel:{font}});
+  const cfg = {displayModeBar:false, responsive:true};
+  Plotly.react("chV", line(rs.map(r=>r.v), "#B7791F"), lay(T("ax.v"), false), cfg);
+  Plotly.react("chI", line(rs.map(r=>r.ma*g+o), "#2A5BD7"), lay(T("ax.i"), false), cfg);
+  Plotly.react("chP", line(rs.map(r=>r.v==null?null:r.v*(r.ma*g+o)), "#6B4FBB"), lay(T("ax.p"), true), cfg);
+  if (Date.now() - lastHist > 5000) { lastHist = Date.now(); fetch("/twin/history?seconds=1800").then(r=>r.json()).then(h => { hist = h; drawSession(); }).catch(()=>{}); }
+}
+function drawSession(){
+  const font = FONT(), X = hist.map(p => new Date(p.ts*1000));
+  Plotly.react("chSession", [
+    {x:X, y:hist.map(p=>p.score), mode:"lines", name:T("score.title"), line:{color:"#0F1F3D", width:2}, connectgaps:false},
+    {x:X, y:hist.map(p=>p.light), mode:"lines", name:T("perf.light")+" %", line:{color:"#E39B00", width:1.6, dash:"dot"}, connectgaps:false, yaxis:"y"}],
+    {margin:{l:46,r:12,t:6,b:30}, paper_bgcolor:"#fff", plot_bgcolor:"#fff", font, showlegend:true, legend:{orientation:"h", y:1.15, font},
+     xaxis:{tickformat:"%H:%M", gridcolor:"#EDF0F5", tickfont:font}, yaxis:{range:[0,110], gridcolor:"#EDF0F5", zeroline:false, tickfont:font}}, {displayModeBar:false, responsive:true});
+}
+function drawSweep(){
+  const font = FONT(), s = st.sweep, m = s.points.slice().sort((a,b)=>a[0]-b[0]), e = s.expected.slice().sort((a,b)=>a[0]-b[0]);
+  Plotly.react("chSweep", [
+    {x:e.map(q=>q[0]), y:e.map(q=>q[1]), mode:"lines", line:{color:"#8A94A0", dash:"dash", width:2}, name:T("exp.expected")},
+    {x:m.map(q=>q[0]), y:m.map(q=>q[1]), mode:"lines+markers", marker:{size:4}, line:{color:"#6B4FBB", width:2.4}, name:T("exp.measured")}],
+    {margin:{l:58,r:12,t:6,b:42}, paper_bgcolor:"#fff", plot_bgcolor:"#fff", font, showlegend:true, legend:{orientation:"h", y:1.12, font},
+     xaxis:{title:{text:T("ax.v"), font}, gridcolor:"#EDF0F5", rangemode:"tozero", tickfont:font}, yaxis:{title:{text:T("ax.i"), font}, gridcolor:"#EDF0F5", rangemode:"tozero", tickfont:font}}, {displayModeBar:false, responsive:true});
+}
+
+function renderDx(){
+  const d = st.diagnosis, live = st.mode === "live";
+  $("dxSrc").innerHTML = d ? badge(d.source==="REAL" ? "PHYSICS MODEL" : "SIMULATED") : "";
+  $("dxSub").textContent = d ? T(d.source==="REAL" ? "dx.sub.real" : "dx.sub.sim") : T(live && !st.online ? "dx.offline" : "dx.nodata");
+  $("dxBody").hidden = !d;
+  if (!d){ ["bars","likely","others","tell","wcards"].forEach(i => $(i).innerHTML = ""); $("certBadge").innerHTML = ""; $("dxSpread").hidden = true; return; }
+  const cl = d.certainty.level;
+  $("certBadge").innerHTML = `<span class="pill ${cl==="high"?"healthy":cl==="moderate"?"attention":"grey"}" title="${esc(T("cert.help"))}">${esc(T("meter.certainty"))}: ${esc(T("cert."+cl))}</span>`;
+  const order = d.order;
+  let html = order.map((c,i) => `<div class="bar-r ${i===0?"top":""}"><span>${esc(T("f."+c))}</span><span class="t"><i style="width:${(d.probs[c]*100).toFixed(1)}%"></i></span><b class="num" style="text-align:right">${nf(d.probs[c]*100,0)}%</b></div>`).join("");
+  if (d.bypass === "not_applicable") html += `<div class="bar-r na"><span>${esc(T("f.bypass_short"))}</span><span class="small" style="grid-column:2/4">${esc(T("dx.bypass.na"))}</span></div>`;
+  $("bars").innerHTML = html;
+  $("dxSpread").hidden = !(live && d.probs[order[0]] < 0.6);
+  const evl = c => `<ul class="ev">${(d.evidence[c]||[]).map(e => `<li>${esc(T(e.key,e.p))}</li>`).join("")}</ul>`;
+  $("likely").innerHTML = `<b>${esc(T("f."+d.top))}</b> <span class="num">${nf(d.probs[d.top]*100,0)}%</span>${evl(d.top)}`;
+  $("others").innerHTML = d.others.length ? d.others.map(c => `<div style="margin-bottom:6px"><b>${esc(T("f."+c))}</b> <span class="num">${nf(d.probs[c]*100,0)}%</span>${evl(c)}</div>`).join("") : `<span class="small">${esc(T("dx.none"))}</span>`;
+  $("tell").innerHTML = d.tell_apart.map(k => `<li>${esc(T(k))}</li>`).join("") || `<li>${esc(T("dx.none"))}</li>`;
+  $("wcards").innerHTML = st.cards.map(c => `<div class="wcard"><div class="hd"><b>${esc(T(c.name))}</b><span class="pc num">${nf(c.p*100,0)}%</span></div>
+    <div class="small">${esc(T(c.one))}</div><dl><dt>${esc(T("cards.seen"))}</dt><dd>${esc(T(c.symptom))}</dd><dt>${esc(T("cards.cause"))}</dt><dd>${esc(T(c.cause))}</dd><dt>${esc(T("cards.do"))}</dt><dd>${esc(T(c.action))}</dd></dl></div>`).join("");
+}
+
+function renderExp(){
+  const e = st.expected; $("exp").hidden = !e; if (!e) return;
+  $("expRows").innerHTML = e.rows.map(r => `<tr><td>${esc(T("exp."+r.key))}</td><td class="n num">${r.expected==null?"-":nf(r.expected, r.unit==="V"?2:r.unit==="mW"?2:2)} ${r.unit}</td><td class="n num">${r.measured==null?"-":nf(r.measured, 2)} ${r.unit}</td><td>${badge(r.badge)}</td></tr>`).join("");
+  $("expBasis").textContent = T("exp.basis."+e.basis);
+  $("expEquiv").textContent = e.equivalent_pct==null ? "" : T("exp.equiv",{x:nf(e.equivalent_pct,e.equivalent_pct<1?2:1), w:nf(e.equivalent_light,1)});
+  $("expDs").textContent = e.datasheet ? (T("exp.ds",{isc:nf(e.datasheet.isc_a,3), voc:nf(e.datasheet.voc_v,1), p:nf(e.datasheet.pmax_w,1)}) + (e.datasheet.mismatch ? " " + T("exp.ds.mismatch") : "")) : "";
+}
+function renderMoney(){
+  const m = st.money; $("moneyBadge").innerHTML = m ? badge(m.provisional ? "PROVISIONAL" : "SIMULATED") : "";
+  $("mKwh").innerHTML = m ? `${nf(m.kwh_day,2)} <small>kWh</small>` : "-"; $("mDay").innerHTML = m ? `₹${nf(m.inr_day,1)}` : "-"; $("mYear").innerHTML = m ? `₹${nf(m.inr_year,0)}` : "-";
+  $("mNote").textContent = m ? `${T("live.scaled",{kwp:m.kwp})}. ${m.provisional ? T("money.prov") : ""}` : T("money.none");
+  $("acts").innerHTML = (st.actions||[]).map(a => `<li>${esc(T(a.key))}${a.inr_day ? ` <span class="small">(≈ ₹${nf(a.inr_day,1)} ${esc(T("live.perday"))})</span>` : ""}</li>`).join("") + `<li>${esc(T("act.remeasure"))}</li>`;
+  $("alerts").innerHTML = alerts.length ? alerts.map(a => `<li>${badge("REAL")} <span class="small">${clock(a.ts)}</span> ${esc(a.text).replace(/\n/g,"<br>")}</li>`).join("") : `<li class="small">${esc(T("alerts.none"))}</li>`;
+}
+function renderAdv(){
+  const r = st.reading, d = st.diagnosis, rows = [];
+  const add = (k,v) => rows.push(`<dt>${esc(k)}</dt><dd class="num">${v}</dd>`);
+  if (r){ add(T("cal.raw"), `${nf(r.ma_raw,3)} mA`); add(T("cal.cal"), `${nf(r.ma_cal,3)} mA`); add("V", r.v==null?"-":nf(r.v,3)+" V"); if (r.raw_line) add(T("live.eng.raw"), `<span class="mono">${esc(r.raw_line)}</span>`); if (r.spread!=null) add(T("live.eng.avg"), `±${nf(r.spread,2)} mA`); }
+  if (st.points && st.points.isc) add("Isc point (raw / cal)", `${nf(st.points.isc.raw,2)} / ${nf(st.points.isc.cal,2)} mA`);
+  if (st.points && st.points.voc) add("Voc point", `${nf(st.points.voc.v,3)} V`);
+  if (st.baseline) add(T("base.title"), `${nf(st.baseline.isc_ma,2)} mA, ${nf(st.baseline.voc_v,3)} V`);
+  $("advRaw").innerHTML = rows.join("");
+  $("advFeat").innerHTML = d ? Object.entries(d.features).map(([k,v]) => `<dt>${esc(k)}</dt><dd class="num">${v==null?"-":nf(v,4)}</dd>`).join("") + (d.pattern ? `<dt>${esc(T("adv.pattern",{x:T("pat."+d.pattern)}))}</dt><dd></dd>` : "") : "";
+  $("advAssume").textContent = d && d.temporal_lr ? JSON.stringify({priors_assumed:d.priors, temporal_likelihood_ratios:d.temporal_lr, pattern_detail:d.pattern_detail, uses_reference_ldr:d.uses_ldr, base_probabilities_before_time_pattern:d.base_probs, note:T("adv.note")}, null, 1) : T("adv.none");
+}
+
+/* ======================================================================= polling and modes */
+async function tick(){
+  if (mode !== "live") return;
+  try {
+    const tariff = encodeURIComponent($("tariff").value || 6);
+    const [s, t] = await Promise.all([fetch("/twin/state?tariff="+tariff).then(r=>r.json()), fetch("/telemetry?node_id=SN-001").then(r=>r.json())]);
+    if (mode !== "live") return;
+    st = s; tele = t; render();
+  } catch(e) { $("connTxt").textContent = T("conn.backend"); $("connDot").className = "dot off"; }
+}
+const SIMP = {healthy:{}, soiling:{soil:0.3}, shade:{shade:0.55}, rs:{rx:9}, bypass:{short:true}};
+async function runSim(){
+  const sev = $("simSev").value/100, p = simPreset;
+  const body = {light:0.9, temp:38, shade:0, soil:0, rx:0, short:false, noise:true, panel:1, mid:true, seed:simSeq, store:false, tariff:+$("tariff").value||6};
+  if (p==="soiling") body.soil = sev*0.6; if (p==="shade") body.shade = sev; if (p==="rs") body.rx = sev*25; if (p==="bypass") body.short = true;
+  $("simSevN").textContent = Math.round(sev*100) + "%";
+  try { const s = await post("/twin/sim", body).then(r=>r.json()); if (mode !== "sim") return; st = s; tele = null; render(); } catch(e) {}
+}
+function setMode(m){
+  mode = m; $("mLive").classList.toggle("on", m==="live"); $("mSim").classList.toggle("on", m==="sim");
+  $("simCtl").hidden = m !== "sim"; $("modeNote").textContent = T(m==="live" ? "note.live2" : "sim.note");
+  [...$("simBtns").querySelectorAll("button[data-p]")].forEach(b => b.classList.toggle("on", b.dataset.p === simPreset));
+  st = null; if (m === "live") tick(); else runSim();
+}
+$("mLive").onclick = () => setMode("live"); $("mSim").onclick = () => setMode("sim");
+$("simBack").onclick = () => setMode("live");
+$("simBtns").onclick = e => { const b = e.target.closest("button[data-p]"); if (b){ simPreset = b.dataset.p; simSeq++; setMode("sim"); } };
+$("simSev").oninput = () => { clearTimeout(runSim.t); runSim.t = setTimeout(runSim, 120); };
+$("tariff").onchange = () => { if (mode==="live") tick(); else runSim(); };
+
+/* ======================================================================= setup: baseline, calibration, sensors, profile */
+async function setBaseline(){
+  const r = await post("/bench/baseline", {node_id:"SN-001"}).catch(()=>null);
+  toast(r && r.ok ? T("live.base.done") : T("live.base.need")); if (r && r.ok) tick();
+}
+$("setBase1").onclick = setBaseline; $("setBase2").onclick = setBaseline;
+async function loadCal(){
+  try { const c = await fetch("/calibration").then(r=>r.json()); calLive = c; const k = c.calibration;
+    $("calGain").textContent = nf(k.gain,4); $("calOff").textContent = nf(k.offset,3);
+    $("calBadge").innerHTML = badge(k.status==="VERIFIED" ? "CALIBRATED" : "PROVISIONAL");
+    $("calDate").textContent = k.verified_at ? T("cal.date",{t:new Date(k.verified_at*1000).toLocaleString("en-IN"), m:nf(k.meter_ma,2), i:nf(k.ina_avg_ma,2)}) : T("cal.never");
+    $("calIna").textContent = T("cal.ina",{x:c.live.ina_avg_ma==null ? "-" : nf(c.live.ina_avg_ma,2), n:c.live.n});
+    $("baseTxt").textContent = st && st.baseline ? T("live.base.set",{t:clock(st.baseline.ts), i:nf(st.baseline.isc_ma,2), v:nf(st.baseline.voc_v,3)}) : T("live.base.none");
+  } catch(e) {}
+}
+$("calBtn").onclick = async () => {
+  const v = parseFloat($("calMeter").value);
+  const r = await post("/calibration/verify", {meter_ma: isNaN(v) ? 0 : v}).catch(()=>null);
+  if (r && r.ok){ const j = await r.json(); toast(T("cal.ok",{g:nf(j.gain,4)})); loadCal(); if (mode==="live") tick(); }
+  else { let k = "cal.err.meter"; try { k = (await r.json()).detail; } catch(e) {} toast(T(k)); }
+};
+$("calReset").onclick = async () => { await post("/calibration/reset", {}); loadCal(); if (mode==="live") tick(); };
+async function loadSens(){
+  try { sensData = await fetch("/sensors").then(r=>r.json());
+    const rows = sensData.sensors.map(s => `<tr><td><b>${esc(s.name)}</b><div class="small">${esc(T("sens.pin",{x:s.pin}))} · ${esc(s.role==="reference" ? T("sens.role.reference") : T("sens.role.region",{x:T("region."+s.region)}))}</div></td>
+      <td class="n num">${s.raw==null ? `<span class="small">${esc(T("sens.nodata"))}</span>` : `${nf(s.raw,0)} <span class="small">raw</span>`}</td><td class="n num">${s.rel_pct==null ? "" : esc(T("sens.rel",{x:nf(s.rel_pct,0)}))} ${s.rel_pct==null ? "" : badge("REAL")}</td></tr>`);
+    rows.push(`<tr><td><b>${esc(T("perf.temp"))}</b></td><td class="n" colspan="2">${sensData.temperature_fitted ? "" : `<span class="small">${esc(T("notfitted"))}</span>`}</td></tr>`);
+    $("sensRows").innerHTML = rows.join("");
+  } catch(e) {}
+}
+const PFIELDS = [["manufacturer","prof.manufacturer","text"],["model","prof.model","text"],["pmax_w","prof.pmax","number"],["voc_v","prof.voc","number"],["isc_a","prof.isc","number"],
+  ["vmp_v","prof.vmp","number"],["imp_a","prof.imp","number"],["alpha_sc_pct","prof.alpha","number"],["beta_voc_pct","prof.beta","number"],["gamma_pmax_pct","prof.gamma","number"],
+  ["cells_series","prof.cells","number"],["panels_series","prof.panels","number"],["strings_parallel","prof.strings","number"],["kwp","prof.kwp","number"],["cells_x","prof.gridx","number"],["cells_y","prof.gridy","number"]];
+async function loadProf(keep){
+  try { profData = await fetch("/profile").then(r=>r.json()); } catch(e) { return; }
+  const ids = Object.keys(profData.profiles), sel = keep || profData.active;
+  $("profSel").innerHTML = ids.map(i => `<option value="${i}" ${i===sel?"selected":""}>${esc(profData.profiles[i].name)}</option>`).join("") + `<option value="__new">${esc(T("prof.new"))}</option>`;
+  drawProfForm($("profSel").value);
+}
+function drawProfForm(id){
+  const p = id==="__new" ? {name:"", kwp:3, cells_x:6, cells_y:6} : profData.profiles[id];
+  $("profForm").innerHTML = `<label style="grid-column:1/-1">${esc(T("prof.name"))}<input data-f="name" type="text" value="${esc(p.name||"")}"></label>` +
+    PFIELDS.map(([k,t,ty]) => `<label>${esc(T(t))}<input data-f="${k}" type="${ty}" step="any" value="${p[k]==null?"":esc(p[k])}"></label>`).join("");
+  $("profNote").textContent = (p.note||"") + " " + T(profData.profiles[id] && profData.profiles[id].vmp_v && profData.profiles[id].imp_a && profData.profiles[id].cells_series ? "prof.twin.fit" : "prof.twin.anchored");
+  $("profTwin").innerHTML = id===profData.active ? `${esc(T("prof.active"))}` : "";
+}
+$("profSel").onchange = () => drawProfForm($("profSel").value);
+$("profSave").onclick = async () => {
+  let id = $("profSel").value; const fields = {};
+  $("profForm").querySelectorAll("input").forEach(i => fields[i.dataset.f] = i.value);
+  if (id === "__new") id = "custom";
+  const r = await post("/profile", {id, fields}).catch(()=>null);
+  if (!r || !r.ok){ let k = "prof.err.fit"; try { k = (await r.json()).detail; } catch(e) {} toast(T(k)); return; }
+  await post("/profile/active", {id}); toast(T("prof.saved")); await loadProf(id); if (mode==="live") tick(); else runSim();
+};
+async function loadAlerts(){ try { alerts = await fetch("/twin/alerts?limit=8").then(r=>r.json()); if (st) renderMoney(); } catch(e) {} }
+
+/* ======================================================================= start */
+function setLang(l, tell){
+  LANG = l; try { localStorage.setItem("sn-lang", l); } catch(e) {}
+  [...$("lang").children].forEach(b => b.classList.toggle("on", b.dataset.l === l));
+  applyStatic(); $("modeNote").textContent = T(mode==="live" ? "note.live2" : "sim.note");
+  if (st) render(); if (profData) drawProfForm($("profSel").value); loadCal(); loadSens();
+  if (tell) fetch("/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({lang:l})}).catch(()=>{});
+}
+(async function(){
+  try { const d = await fetch("/i18n").then(r=>r.json()); STR = d.strings; LANGS = d.langs; } catch(e) {}
+  if (!STR[LANG]) LANG = "en";
+  $("lang").innerHTML = Object.entries(LANGS).map(([k,v]) => `<button data-l="${k}">${v}</button>`).join("");
+  $("lang").onclick = e => { if (e.target.dataset.l) setLang(e.target.dataset.l, true); };
+  setLang(LANG, true);
+  await initTwin();
+  loadProf(); loadCal(); loadSens(); loadAlerts();
+  setMode("live"); setInterval(tick, 1000);
+  setInterval(loadAlerts, 8000); setInterval(loadCal, 4000); setInterval(loadSens, 5000);
+})();
+</script>
+</body>
+</html>

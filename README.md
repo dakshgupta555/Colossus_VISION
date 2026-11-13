@@ -35,6 +35,25 @@ Telegram alerts (optional): message @BotFather, `/newbot`, copy the token, send 
 | `virtual_node.py` | Posts SIMULATED sweeps exactly like the ESP32 will |
 | `serial_bridge.py` | Reads the ESP32's INA219 Serial printouts over USB and POSTs them to `/telemetry` (shown as the "Live sensor" strip in Live node mode). Close the Arduino Serial Monitor first. |
 
+## Two views
+
+- **Owner view** (`http://localhost:8000/`): Digital Twin & Health. A 3D twin of the panel (three.js is vendored in `web/vendor/`,
+  so it works offline; falls back to a 2D drawing without WebGL), a 0-100 health score, live V/I/P, a probabilistic diagnosis,
+  expected vs measured, money, recommended actions, a Simulation switch, and setup (baseline, calibration, sensors, panel profile).
+- **Installer view** (`http://localhost:8000/console`): the diagnostic console (fleet, model, scan log, test bench).
+
+Every number carries a badge: REAL, CALIBRATED, PROVISIONAL, SIMULATED or PHYSICS MODEL. Language switch (en/hi/kn) is shared.
+
+Owner-view API: `GET /twin/state` (real), `POST /twin/sim` (simulated, via `/simulate`), `GET /twin/history`, `GET /twin/alerts`,
+`GET /calibration`, `POST /calibration/verify` (`{meter_ma}`), `POST /calibration/reset`, `GET /sensors`,
+`GET /profile`, `POST /profile`, `POST /profile/active`.
+
+Data files: `data/calibration.json` (gain/offset, default 1.0/0, PROVISIONAL until verified against a multimeter),
+`data/sensors.json` (LDR roles and pins: reference or a region), `data/panel_profile.json` (panel datasheet profile).
+The real-data classifier (`sn/realdx.py`, trained on pvlib simulations of our single panel using Isc, Voc and the reference LDR)
+keeps all its assumptions (priors, time-pattern likelihood ratios) in one config block and claims no accuracy for real data.
+`serial_bridge.py` also parses LDR lines (`LDR1: 2345`, `LDR: 1200, 1800`) and `Temperature: 28.5 C` if the node prints them.
+
 ## Real bench (one panel, INA219, USB serial)
 
 No firmware change: `serial_bridge.py` only reads what the ESP32 already prints. Wiring: a jumper from INA219 VIN- to
