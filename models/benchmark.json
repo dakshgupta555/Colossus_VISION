@@ -1,0 +1,178 @@
+{
+ "standard": {
+  "rules": {
+   "macro_f1": 0.981,
+   "accuracy": 0.981,
+   "confusion": [
+    [
+     300,
+     0,
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     300,
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     292,
+     8,
+     0
+    ],
+    [
+     20,
+     0,
+     0,
+     280,
+     0
+    ],
+    [
+     0,
+     0,
+     0,
+     0,
+     300
+    ]
+   ]
+  },
+  "ai": {
+   "macro_f1": 1.0,
+   "accuracy": 1.0,
+   "confusion": [
+    [
+     300,
+     0,
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     300,
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     300,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     0,
+     300,
+     0
+    ],
+    [
+     0,
+     0,
+     0,
+     0,
+     300
+    ]
+   ]
+  }
+ },
+ "hard": {
+  "rules": {
+   "macro_f1": 0.397,
+   "accuracy": 0.458,
+   "confusion": [
+    [
+     300,
+     0,
+     0,
+     0,
+     0
+    ],
+    [
+     213,
+     87,
+     0,
+     0,
+     0
+    ],
+    [
+     6,
+     0,
+     0,
+     294,
+     0
+    ],
+    [
+     300,
+     0,
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     0,
+     0,
+     300
+    ]
+   ]
+  },
+  "ai": {
+   "macro_f1": 0.989,
+   "accuracy": 0.989,
+   "confusion": [
+    [
+     293,
+     0,
+     0,
+     7,
+     0
+    ],
+    [
+     1,
+     299,
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     0,
+     299,
+     1,
+     0
+    ],
+    [
+     7,
+     0,
+     0,
+     293,
+     0
+    ],
+    [
+     0,
+     0,
+     0,
+     0,
+     300
+    ]
+   ]
+  }
+ },
+ "classes": [
+  "healthy",
+  "soiling",
+  "partial_shade",
+  "series_resistance",
+  "bypass_short"
+ ],
+ "note": "Simulated test sets (unseen random seeds). 'hard' = dim light 15-35 %, 55-68 C panels, mild faults. Real-bench results are added after data collection."
+}

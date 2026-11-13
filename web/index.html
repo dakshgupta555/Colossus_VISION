@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SuryaNidaan console</title>
+<script src="/static/plotly.min.js"></script>
+<style>
+:root{
+  --bg:#EDEFF2; --paper:#fff; --ink:#14202B; --ink2:#44505C; --muted:#6E7985; --line:#D9DEE4; --line2:#ECEFF2;
+  --sun:#E8A100; --cell:#1E4E9A; --cell-soft:#EAF0F9;
+  --bad:#C4321C; --bad-soft:#FBECE8; --ok:#1F7A4D; --ok-soft:#E6F3EC; --warn:#A66A00; --warn-soft:#FBF1DA;
+  --font:"Avenir Next","Segoe UI Variable Text","Segoe UI","Noto Sans","Kohinoor Devanagari","Noto Sans Devanagari","Noto Sans Kannada","Kannada Sangam MN",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--font)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--cell);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- top bar ---------- */
+.bar{height:58px;background:var(--paper);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 22px;position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:.1px}
+.brand span{font-weight:500;color:var(--muted);font-size:14px}
+.site{padding:5px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-weight:600;color:var(--ink2)}
+.grow{flex:1}
+.lang{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.lang button{border:0;background:var(--paper);padding:6px 11px;font-size:13px;font-weight:600;color:var(--muted)}
+.lang button.on{background:var(--ink);color:#fff}
+.bell{position:relative;border:1px solid var(--line);background:var(--paper);border-radius:7px;width:38px;height:34px;display:grid;place-items:center}
+.bell b{position:absolute;top:-7px;right:-7px;min-width:19px;height:19px;border-radius:10px;background:var(--bad);color:#fff;font-size:11px;line-height:19px;text-align:center;padding:0 5px}
+.bell b[hidden]{display:none}
+.pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2)}
+.dot{width:9px;height:9px;border-radius:50%;background:#9AA3AE}
+.dot.on{background:var(--ok)} .dot.sim{background:var(--sun)} .dot.off{background:var(--bad)}
+#clock{font-size:13px;color:var(--muted);min-width:62px;text-align:right}
+.tabs{display:flex;gap:4px;padding:0 22px;background:var(--paper);border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:none;padding:12px 14px 10px;font-size:14px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--sun)}
+
+main{max-width:1380px;margin:0 auto;padding:18px 22px 48px}
+.view{display:none} .view.on{display:block}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+h2{font-size:15px;font-weight:700;margin:0 0 10px}
+.small{font-size:13px;color:var(--muted)}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:7px;padding:7px 13px;font-weight:600;font-size:14px}
+.btn:hover{border-color:#B9C1CA}
+.btn.dark{background:var(--ink);border-color:var(--ink);color:#fff}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:var(--paper);padding:7px 14px;font-weight:600;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--ink);color:#fff}
+.simtag{font-size:12px;font-weight:700;padding:3px 9px;border-radius:5px;color:#6B4700;border:1px solid #E9C877;background:repeating-linear-gradient(135deg,#FFF4D8,#FFF4D8 6px,#FDE7B2 6px,#FDE7B2 12px)}
+.livestrip{display:flex;align-items:center;gap:22px;flex-wrap:wrap;padding:8px 14px;margin-bottom:12px;background:var(--paper);border:1px solid var(--line);border-radius:8px}
+.livestrip[hidden]{display:none}
+.livestrip .ls{display:flex;flex-direction:column;line-height:1.15}.livestrip .ls span{font-size:11px;color:var(--muted)}.livestrip .ls b{font-size:18px}
+.livestrip .lspark{display:flex;flex-direction:column;margin-left:auto}.livestrip svg{width:240px;height:40px}
+.realtag{font-size:12px;font-weight:700;padding:3px 9px;border-radius:5px;color:var(--ok);background:var(--ok-soft);border:1px solid #BFE0CD}
+.chip{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:5px;border:1px solid var(--line);color:var(--ink2);background:#F7F8FA;white-space:nowrap}
+.chip.bad{color:var(--bad);background:var(--bad-soft);border-color:#F0C6BD}
+.chip.ok{color:var(--ok);background:var(--ok-soft);border-color:#BFE0CD}
+.chip.warn{color:var(--warn);background:var(--warn-soft);border-color:#ECD49A}
+
+/* ---------- diagnosis ---------- */
+.modebar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.assume{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.assume input{width:58px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;background:var(--paper);font-weight:600;color:var(--ink)}
+#viewBar{background:var(--cell-soft);border:1px solid #CBD9EF;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-weight:600}
+.bench{background:#FFFDF6;border:1px dashed #E2C275;border-radius:10px;padding:14px 18px;margin-bottom:14px}
+.presets{display:flex;gap:6px;flex-wrap:wrap}
+.presets button{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:6px 14px;font-weight:600;font-size:14px}
+.presets button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.bench .hint{margin:8px 0 0;font-size:13px;color:var(--muted)}
+details.fine{margin-top:8px}
+details.fine summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
+.ctrls{display:grid;grid-template-columns:repeat(5,1fr);gap:12px 18px;margin-top:10px}
+.ctl label{display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:var(--ink2)}
+.ctl output{color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--sun)}
+.chk{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink2)}
+
+.verdict{display:grid;grid-template-columns:5fr 6fr;gap:8px 28px;margin-bottom:14px}
+.verdict h1{font-size:27px;line-height:1.25;font-weight:700;margin:10px 0 14px;letter-spacing:-.2px;max-width:24em}
+.vdl{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0 0 16px}
+.vdl dt{font-size:13px;font-weight:700;color:var(--muted);padding-top:2px}
+.vdl dd{margin:0;font-size:15px}
+.vdl dd b{font-weight:700}
+.vdl .basis{display:block;font-size:12.5px;color:var(--muted)}
+#schem svg{width:100%;height:auto;display:block}
+#schem .hit{fill:transparent;cursor:pointer}
+#schem .hit:hover{fill:rgba(232,161,0,.12)}
+#schem .co line{stroke:var(--bad);stroke-width:1.3}
+#schem .co rect{fill:var(--bad);stroke:none}
+#schem .co text{fill:#fff;font-size:12.5px;font-weight:700}
+#schem .co circle{fill:var(--bad)}
+#schem .co.amber line{stroke:var(--warn)} #schem .co.amber rect,#schem .co.amber circle{fill:var(--warn)}
+#schem .pulse{opacity:.35;transform-box:fill-box;transform-origin:center;animation:pulse 1.6s ease-out infinite}
+@keyframes pulse{from{transform:scale(1);opacity:.45}to{transform:scale(3.4);opacity:0}}
+@media (prefers-reduced-motion:reduce){#schem .pulse{animation:none}}
+.figs{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line2);margin-top:6px;padding-top:14px}
+.fig{padding:0 18px;border-left:1px solid var(--line2)}
+.fig:first-child{padding-left:0;border-left:0}
+.fig .k{font-size:13px;color:var(--muted);font-weight:600}
+.fig .v{font-size:25px;font-weight:700;line-height:1.25}
+.fig .v small{font-size:14px;font-weight:600;color:var(--ink2)}
+.fig .s{font-size:13px;color:var(--muted)}
+.meter{height:5px;background:var(--line2);border-radius:3px;margin-top:6px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--bad)}
+
+.two{display:grid;grid-template-columns:8fr 4fr;gap:14px;margin-bottom:14px}
+.side{display:flex;flex-direction:column;gap:14px}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--ink2);margin:2px 0 4px}
+.legend i{display:inline-block;width:22px;height:0;border-top:3px solid var(--cell);vertical-align:middle;margin-right:6px}
+.legend i.e{border-top:2px dashed #8A949E} .legend i.l{border-top:9px solid rgba(196,50,28,.16)}
+#plot{height:420px}
+.ev{margin:0;padding:0;list-style:none}
+.ev li{padding:8px 0 8px 18px;border-top:1px solid var(--line2);position:relative;font-size:14px;color:var(--ink2)}
+.ev li:first-child{border-top:0;padding-top:2px}
+.ev li:before{content:"";position:absolute;left:2px;top:16px;width:7px;height:7px;border-radius:50%;background:var(--cell)}
+.ev li:first-child:before{top:10px}
+.rule{font-size:13px;color:var(--muted);margin:10px 0 0}
+.pay input{width:92px;border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-weight:700}
+.pay p{margin:8px 0 0;font-weight:700}
+.strip{display:flex;gap:5px;flex-wrap:wrap}
+.strip button{width:18px;height:18px;border-radius:4px;border:0;padding:0;background:#C9CFD6}
+.strip button.ok{background:var(--ok)} .strip button.bad{background:var(--bad)} .strip button.warn{background:var(--sun)}
+.strip button.sel{outline:2px solid var(--ink);outline-offset:2px}
+details.eng{margin-top:14px}
+details.eng>summary{cursor:pointer;font-weight:700;font-size:15px}
+.eng-grid{display:grid;grid-template-columns:7fr 5fr;gap:22px;margin-top:14px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:12.5px;color:var(--muted);text-align:left;font-weight:700;padding:7px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line2);font-variant-numeric:tabular-nums}
+td.n,th.n{text-align:right}
+tr.click{cursor:pointer} tr.click:hover td{background:#F6F8FA}
+.neg{color:var(--bad)}
+.prob{display:grid;grid-template-columns:150px 1fr 52px;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+.prob .t{height:7px;background:var(--line2);border-radius:4px;overflow:hidden}
+.prob .t i{display:block;height:100%;background:#9AA3AE}
+.prob.top{font-weight:700} .prob.top .t i{background:var(--cell)}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:13px;margin:12px 0}
+.meta dt{color:var(--muted)} .meta dd{margin:0}
+
+/* ---------- fleet ---------- */
+.fleetfigs{display:grid;grid-template-columns:repeat(4,1fr);margin:12px 0 14px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filters button{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:5px 12px;font-weight:600;font-size:13px}
+.filters button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.fleet2{display:grid;grid-template-columns:9fr 14fr;gap:14px}
+.nw{white-space:nowrap}
+#map{height:430px}
+.scroll{max-height:470px;overflow:auto}
+
+/* ---------- model ---------- */
+.model2{display:grid;grid-template-columns:5fr 7fr;gap:14px;margin-bottom:14px}
+.cm td{text-align:center;font-size:13px;border:2px solid #fff}
+.cm th{text-align:center;font-size:12px}
+
+/* ---------- alerts drawer ---------- */
+#shade{position:fixed;inset:0;background:rgba(20,32,43,.28);z-index:30;display:none}
+#drawer{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:92vw;background:var(--paper);z-index:31;box-shadow:-8px 0 30px rgba(20,32,43,.18);transform:translateX(105%);transition:transform .2s ease;display:flex;flex-direction:column}
+body.drawer #shade{display:block} body.drawer #drawer{transform:none}
+#drawer header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)}
+#alertList{overflow:auto;padding:6px 18px 18px}
+.al{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line2);background:none;padding:12px 0}
+.al:hover{background:#F6F8FA}
+.al .t{display:flex;justify-content:space-between;gap:10px;font-weight:700}
+.al .w{font-size:13.5px;color:var(--ink2)} .al .m{font-size:12.5px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+.toast.show{opacity:1}
+.foot{margin-top:22px;font-size:12.5px;color:var(--muted);text-align:center}
+
+@media (max-width:980px){
+  .verdict,.two,.fleet2,.model2,.eng-grid{grid-template-columns:1fr}
+  .figs,.fleetfigs{grid-template-columns:repeat(2,1fr);row-gap:14px}
+  .fig:nth-child(3){padding-left:0;border-left:0}
+  .ctrls{grid-template-columns:repeat(2,1fr)}
+  .pill,#clock,.brand span{display:none}
+}
+@media print{
+  .bar,.tabs,.modebar,.bench,#viewBar,.noprint,.foot,#drawer,#shade,.toast{display:none!important}
+  html,body{background:#fff} main{padding:0;max-width:none}
+  .card{border:0;padding:8px 0} .two{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="none" stroke="#E8A100" stroke-width="2.4"/><path d="M5 19 C 10 19, 12 18, 14.5 15 S 18 8, 23 8" fill="none" stroke="#14202B" stroke-width="2.2"/></svg>
+    SuryaNidaan <span data-t="brand.sub"></span>
+  </div>
+  <span class="site" id="siteChip">SN-SIM-01</span>
+  <div class="grow"></div>
+  <div class="lang" id="lang" role="group" aria-label="Language"></div>
+  <button class="bell" id="bell" aria-label="Open alerts">
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2.2a4.6 4.6 0 0 0-4.6 4.6c0 3.6-1.6 4.9-1.6 4.9h12.4s-1.6-1.3-1.6-4.9A4.6 4.6 0 0 0 9 2.2zM7.4 14a1.7 1.7 0 0 0 3.2 0" fill="none" stroke="#14202B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <b id="bellN" hidden>0</b>
+  </button>
+  <span class="pill"><i class="dot" id="nodeDot"></i><span id="nodeTxt"></span></span>
+  <span id="clock" class="num"></span>
+</header>
+<nav class="tabs" id="tabs">
+  <button class="on" data-v="diag" data-t="tab.diag"></button>
+  <button data-v="fleet" data-t="tab.fleet"></button>
+  <button data-v="model" data-t="tab.model"></button>
+  <button data-v="log" data-t="tab.log"></button>
+</nav>
+
+<main>
+<!-- ===================== DIAGNOSIS ===================== -->
+<section class="view on" id="v-diag">
+  <div class="modebar noprint">
+    <div class="seg"><button id="mLive" data-t="mode.live"></button><button id="mBench" data-t="mode.bench"></button></div>
+    <span id="srcTag"></span>
+    <span class="small" id="modeNote"></span>
+    <div class="grow"></div>
+    <label class="assume"><span data-t="kwp"></span><input id="kwp" type="number" value="3" step="0.5" min="0.5">kWp</label>
+    <label class="assume"><span data-t="tariff"></span><input id="tariff" type="number" value="6" step="0.5" min="1">₹/kWh</label>
+  </div>
+  <div class="livestrip noprint" id="liveStrip" hidden>
+    <b data-t="live.title"></b><span id="lsTag"></span>
+    <div class="ls"><span data-t="live.v"></span><b class="num" id="lsV">-</b></div>
+    <div class="ls"><span data-t="live.i"></span><b class="num" id="lsI">-</b></div>
+    <div class="ls"><span data-t="live.p"></span><b class="num" id="lsP">-</b></div>
+    <div class="lspark"><svg id="lsSvg" viewBox="0 0 240 40" preserveAspectRatio="none"></svg><span class="small" data-t="live.spark"></span></div>
+  </div>
+  <div id="viewBar" class="row" hidden><span id="viewTxt"></span><span id="viewTag"></span><div class="grow"></div><button class="btn" id="viewBack"></button></div>
+
+  <div class="bench" id="benchCard">
+    <div class="row">
+      <b data-t="bench.title"></b>
+      <div class="presets" id="presets">
+        <button data-p="healthy" data-t="p.healthy"></button><button data-p="soiling" data-t="p.soiling"></button>
+        <button data-p="shade" data-t="p.shade"></button><button data-p="rs" data-t="p.rs"></button>
+        <button data-p="bypass" data-t="p.bypass"></button>
+      </div>
+      <div class="grow"></div>
+      <button class="btn" id="rescan" data-t="btn.rescan"></button>
+      <button class="btn dark" id="send" data-t="btn.send"></button>
+    </div>
+    <p class="hint"><span data-t="bench.hint"></span> <span id="sendRes"></span></p>
+    <details class="fine"><summary data-t="fine"></summary>
+      <div class="ctrls">
+        <div class="ctl"><label><span data-t="c.light"></span><output id="o-light"></output></label><input id="light" type="range" min="15" max="110" value="90"></div>
+        <div class="ctl"><label><span data-t="c.temp"></span><output id="o-temp"></output></label><input id="temp" type="range" min="25" max="70" value="38"></div>
+        <div class="ctl"><label><span data-t="c.shade"></span><output id="o-shade"></output></label><input id="shade" type="range" min="0" max="95" value="0"></div>
+        <div class="ctl"><label><span data-t="c.soil"></span><output id="o-soil"></output></label><input id="soil" type="range" min="0" max="60" value="0"></div>
+        <div class="ctl"><label><span data-t="c.rx"></span><output id="o-rx"></output></label><input id="rx" type="range" min="0" max="25" step="0.5" value="0"></div>
+        <label class="chk"><input id="short" type="checkbox"><span data-t="c.short"></span></label>
+        <label class="chk"><input id="noise" type="checkbox" checked><span data-t="c.noise"></span></label>
+        <label class="chk"><input id="mid" type="checkbox" checked><span data-t="c.mid"></span></label>
+      </div>
+    </details>
+  </div>
+
+  <div class="card verdict">
+    <div>
+      <div class="row"><span class="chip" id="sev"></span><span class="small" id="conf"></span></div>
+      <h1 id="vText"></h1>
+      <dl class="vdl">
+        <dt data-t="where"></dt><dd><b id="vWhere"></b><span class="basis" id="vBasis"></span></dd>
+        <dt data-t="todo"></dt><dd id="vDo"></dd>
+      </dl>
+      <div class="row noprint">
+        <button class="btn" id="ticket" data-t="btn.ticket"></button>
+        <button class="btn" id="print" data-t="btn.print"></button>
+      </div>
+    </div>
+    <div id="schem"></div>
+    <div class="figs">
+      <div class="fig"><div class="k" data-t="fig.power"></div><div class="v num" id="fP"></div><div class="s num" id="fPe"></div></div>
+      <div class="fig"><div class="k" data-t="fig.loss"></div><div class="v num" id="fL"></div><div class="meter"><i id="fLb"></i></div></div>
+      <div class="fig"><div class="k" data-t="fig.money"></div><div class="v num" id="fM"></div><div class="s num" id="fMy"></div></div>
+      <div class="fig"><div class="k" data-t="fig.cond"></div><div class="v num" id="fG"></div><div class="s num" id="fT"></div></div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <div class="row"><h2 style="margin:0" data-t="chart.title"></h2><div class="grow"></div>
+        <div class="seg noprint"><button id="kIV" class="on" data-t="chart.iv"></button><button id="kPV" data-t="chart.pv"></button></div></div>
+      <div class="legend"><span><i></i><span data-t="chart.measured"></span></span><span><i class="e"></i><span data-t="chart.expected"></span></span><span><i class="l"></i><span data-t="chart.lost"></span></span></div>
+      <div id="plot"></div>
+    </div>
+    <div class="side">
+      <div class="card"><h2 data-t="why.title"></h2><ul class="ev" id="ev"></ul><p class="rule" id="rule"></p></div>
+      <div class="card pay" id="payCard"><h2 data-t="pay.title"></h2>
+        <label class="small"><span data-t="pay.cost"></span><br><input id="fix" type="number" min="0" step="50"></label>
+        <p id="payRes"></p></div>
+    </div>
+  </div>
+
+  <div class="card noprint"><h2 data-t="recent.title"></h2><div class="strip" id="strip"></div></div>
+
+  <details class="card eng" id="eng"><summary data-t="details.title"></summary>
+    <div class="eng-grid">
+      <div><table><thead><tr><th>Parameter</th><th class="n">Measured</th><th class="n">Expected</th><th class="n">Difference</th></tr></thead><tbody id="params"></tbody></table></div>
+      <div>
+        <h2>Model probability for each fault</h2><div id="probs"></div>
+        <dl class="meta" id="meta"></dl>
+        <div class="row noprint"><button class="btn" id="dlJson">Download sweep (JSON)</button><button class="btn" id="dlCsv">Download points (CSV)</button></div>
+      </div>
+    </div>
+  </details>
+</section>
+
+<!-- ===================== FLEET ===================== -->
+<section class="view" id="v-fleet">
+  <p class="small" style="margin:0"><span class="simtag" data-t="tag.sim"></span> <span data-t="fleet.note"></span></p>
+  <div class="card fleetfigs">
+    <div class="fig"><div class="v num" id="qT"></div><div class="k" data-t="fleet.sites"></div></div>
+    <div class="fig"><div class="v num" id="qH" style="color:var(--ok)"></div><div class="k" data-t="fleet.healthy"></div></div>
+    <div class="fig"><div class="v num" id="qA" style="color:var(--bad)"></div><div class="k" data-t="fleet.attention"></div></div>
+    <div class="fig"><div class="v num" id="qR"></div><div class="k" data-t="fleet.risk"></div></div>
+  </div>
+  <div class="filters" id="filters"></div>
+  <div class="fleet2">
+    <div class="card"><h2 data-t="fleet.map"></h2><div id="map"></div><p class="small" style="margin:6px 0 0" data-t="fleet.mapnote"></p></div>
+    <div class="card"><h2 data-t="fleet.queue"></h2><div class="scroll"><table><thead><tr>
+      <th data-t="th.site"></th><th data-t="th.locality"></th><th data-t="th.diag"></th><th data-t="th.where"></th>
+      <th class="n" data-t="th.loss"></th><th class="n nw" data-t="th.perday"></th><th class="nw" data-t="th.last"></th><th data-t="th.ticket"></th>
+    </tr></thead><tbody id="qRows"></tbody></table></div></div>
+  </div>
+</section>
+
+<!-- ===================== MODEL ===================== -->
+<section class="view" id="v-model">
+  <div class="model2">
+    <div class="card">
+      <h2>Physics rules against the AI, on curves neither has seen</h2>
+      <table><thead><tr><th>Test set</th><th class="n">Physics rules</th><th class="n">AI</th></tr></thead><tbody id="bench"></tbody></table>
+      <p class="small">Score is macro-F1, where 1.0 is perfect. Both test sets are simulated, generated with random seeds the model never saw. Hard cases are dim light (15 to 35%), hot panels (55 to 68 °C) and mild faults.</p>
+      <p class="small"><b>How it works.</b> A Random Forest of 300 trees reads 22 physics features of the curve. Its probabilities are calibrated, an IsolationForest flags curves outside the training range, and the physics rules run alongside as a cross-check. Trained on <span id="nTrain" class="num"></span> curves from the pvlib twin of our panels. Real-bench results get added once we record real sweeps.</p>
+    </div>
+    <div class="card"><h2>What the model looks at most</h2><div id="pImp" style="height:330px"></div></div>
+  </div>
+  <div class="model2" style="grid-template-columns:1fr 1fr">
+    <div class="card"><h2>Hard cases, physics rules</h2><div id="cmR"></div><p class="small" style="margin:8px 0 0">Rows are the true fault, columns the answer given.</p></div>
+    <div class="card"><h2>Hard cases, AI</h2><div id="cmA"></div><p class="small" style="margin:8px 0 0">Rows are the true fault, columns the answer given.</p></div>
+  </div>
+</section>
+
+<!-- ===================== LOG ===================== -->
+<section class="view" id="v-log">
+  <div class="card"><p class="small" style="margin:0 0 10px" data-t="log.title"></p>
+  <table><thead><tr><th>#</th><th data-t="th.time"></th><th data-t="th.node"></th><th data-t="th.source"></th><th data-t="th.diag"></th>
+    <th data-t="th.where"></th><th class="n" data-t="th.conf"></th><th class="n" data-t="th.loss"></th><th class="n" data-t="th.perday"></th><th data-t="th.rule"></th></tr></thead>
+  <tbody id="logRows"></tbody></table></div>
+</section>
+<p class="foot" data-t="foot"></p>
+</main>
+
+<div id="shade"></div>
+<aside id="drawer" aria-label="Alerts">
+  <header><h2 style="margin:0" data-t="alerts.title"></h2><button class="btn" id="drawerX" aria-label="Close">✕</button></header>
+  <div id="alertList"></div>
+</aside>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const FAULTS = ["healthy","soiling","partial_shade","series_resistance","bypass_short"];
+const FCOL = {healthy:"#1F7A4D",soiling:"#B7791F",partial_shade:"#5B4B8A",series_resistance:"#C4321C",bypass_short:"#14202B"};
+const FIX = {soiling:300,partial_shade:500,series_resistance:800,bypass_short:1200};   // placeholder fix costs, editable on the page
+const FEAT = {voc_ratio:"Voc against expected",isc_ratio:"Isc against expected",pmax_ratio:"Pmax against expected",ff_ratio:"Fill factor against expected",
+  rs_ratio:"Series-resistance index",rs_norm:"Slope near Voc",step_score:"Mid-curve step",n_peaks:"Number of power peaks",g_est:"Light level",temp_c:"Panel temperature",
+  ff:"Fill factor",vmp_voc:"Vmp / Voc",imp_isc:"Imp / Isc",shape_10:"Current at 10% of Voc",shape_20:"Current at 20% of Voc",shape_30:"Current at 30% of Voc",
+  shape_40:"Current at 40% of Voc",shape_50:"Current at 50% of Voc",shape_60:"Current at 60% of Voc",shape_70:"Current at 70% of Voc",shape_80:"Current at 80% of Voc",shape_90:"Current at 90% of Voc"};
+let STR = {en:{}}, LANGS = {en:"English"}, LANG = "en";
+let mode = "bench", seed = 1, cur = null, kind = "iv", benchPanel = 1, liveTimer = null, lastLiveId = null, back = "diag";
+let fleet = null, fleetFilter = "all", tab = "diag";
+try { LANG = localStorage.getItem("sn-lang") || "en"; } catch(e) {}
+
+/* ---------- translation layer ---------- */
+function T(key, p){
+  let s = (STR[LANG] && STR[LANG][key]) || STR.en[key] || key;
+  return s.replace(/\{(\w+)\}/g, (m,k) => { const v = p ? p[k] : undefined;
+    if (v && typeof v === "object" && v.key) return T(v.key, v.p); return v === undefined || v === null ? m : v; });
+}
+const say = (o, fallback) => (o && o.key) ? T(o.key, o.p) : (fallback || "");
+function applyStatic(){ document.querySelectorAll("[data-t]").forEach(el => el.textContent = T(el.dataset.t)); document.documentElement.lang = LANG; }
+function setLang(l, tell){
+  LANG = l; try { localStorage.setItem("sn-lang", l); } catch(e) {}
+  [...$("lang").children].forEach(b => b.classList.toggle("on", b.dataset.l === l));
+  applyStatic(); setModeText(); if (cur) render(); if (fleet) { drawFleet(); drawAlerts(); } if (tab === "log") loadLog(); loadRecent();
+  if (tell) fetch("/settings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({lang:l})}).catch(()=>{});
+}
+
+/* ---------- helpers ---------- */
+const nf = (x,d=1) => (x==null||isNaN(x)) ? "-" : Number(x).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d});
+const pc = x => x >= 0.995 ? ">99%" : (x*100).toFixed(0)+"%";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function toast(t){ const e=$("toast"); e.textContent=t; e.classList.add("show"); clearTimeout(toast.t); toast.t=setTimeout(()=>e.classList.remove("show"),3200); }
+function sevOf(r){ if (r.status!=="ok") return ["warn","sev.check"]; if (r.label==="healthy") return ["ok","sev.ok"];
+  return r.loss_pct>=20 ? ["bad","sev.high"] : r.loss_pct>=5 ? ["bad","sev.med"] : ["warn","sev.low"]; }
+const ago = m => m < 60 ? T("ago.min",{n:m}) : T("ago.h",{n:Math.round(m/60)});
+const clock = ts => new Date(ts*1000).toLocaleTimeString("en-IN",{hour12:false});
+function interp(xs, ys, x){ if (x <= xs[0]) return ys[0]; const n = xs.length; if (x >= xs[n-1]) return ys[n-1];
+  let lo=0, hi=n-1; while (hi-lo>1){ const m=(lo+hi)>>1; if (xs[m] <= x) lo=m; else hi=m; }
+  const t = (x-xs[lo])/((xs[hi]-xs[lo])||1); return ys[lo] + t*(ys[hi]-ys[lo]); }
+function download(name, text, type){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),500); }
+setInterval(()=>{ $("clock").textContent = new Date().toLocaleTimeString("en-IN",{hour12:false}); },1000);
+
+/* ---------- tabs ---------- */
+function showTab(v){ tab = v;
+  [...$("tabs").children].forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-"+v));
+  if (v==="fleet") loadFleet(); if (v==="model") loadModel(); if (v==="log") loadLog();
+  if (v==="diag" && cur) drawChart(); window.scrollTo(0,0);
+}
+$("tabs").onclick = e => { if (e.target.dataset.v) showTab(e.target.dataset.v); };
+
+/* ---------- test bench ---------- */
+const PRE = {healthy:{}, soiling:{soil:30}, shade:{shade:55}, rs:{rx:9}, bypass:{short:true}};
+function readouts(){ $("o-light").textContent=$("light").value+"%"; $("o-temp").textContent=$("temp").value+" °C";
+  $("o-shade").textContent=$("shade").value+"%"; $("o-soil").textContent=$("soil").value+"%"; $("o-rx").textContent=Number($("rx").value).toFixed(1)+" Ω";
+  const a = $("short").checked ? "bypass" : +$("shade").value>0 ? "shade" : +$("rx").value>0 ? "rs" : +$("soil").value>0 ? "soiling" : "healthy";
+  [...$("presets").children].forEach(b => b.classList.toggle("on", b.dataset.p === a)); }
+function preset(k){ $("shade").value=0; $("soil").value=0; $("rx").value=0; $("short").checked=false;
+  const p = PRE[k]; if (p.soil) $("soil").value=p.soil; if (p.shade) $("shade").value=p.shade; if (p.rx) $("rx").value=p.rx; if (p.short) $("short").checked=true;
+  benchScan(); }
+function body(store){ return {light:$("light").value/100, temp:+$("temp").value, shade:$("shade").value/100, soil:$("soil").value/100, rx:+$("rx").value,
+  short:$("short").checked, noise:$("noise").checked, panel:benchPanel, mid:$("mid").checked, seed, store, kwp:+$("kwp").value, tariff:+$("tariff").value}; }
+const post = (url, b) => fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json());
+let deb = null;
+function benchScan(){ readouts(); clearTimeout(deb); deb = setTimeout(async () => {
+  const r = await post("/simulate", body(false)); if (mode !== "bench") return;
+  show({payload:r.payload, result:r.result, source:"sim", ts:r.ts, node:"SN-SIM-01"}); }, 110); }
+["light","temp","shade","soil","rx"].forEach(i => $(i).addEventListener("input", benchScan));
+["short","noise","mid"].forEach(i => $(i).addEventListener("change", benchScan));
+["kwp","tariff"].forEach(i => $(i).addEventListener("change", () => { if (mode==="bench") benchScan(); fleet=null; if (tab==="fleet") loadFleet(); }));
+$("presets").onclick = e => { if (e.target.dataset.p) preset(e.target.dataset.p); };
+$("rescan").onclick = () => { seed++; benchScan(); };
+$("send").onclick = async () => { const r = await post("/simulate", body(true));
+  $("sendRes").textContent = T("sent",{id:r.id, led:r.led, alert:r.alert}); cur.id = r.id; loadRecent(); fleet=null; loadFleet(true); };
+$("schem").onclick = e => { const h = e.target.dataset && e.target.dataset.hit; if (!h || mode!=="bench") return;
+  if (h==="joint") return preset("rs");
+  benchPanel = h.endsWith("A") ? 0 : 1;
+  if (h[0]==="d") { $("shade").value=0; $("soil").value=0; $("rx").value=0; $("short").checked=true; return benchScan(); }
+  if (+$("shade").value>0 || $("short").checked) return benchScan();
+  preset("shade"); };
+
+/* ---------- modes ---------- */
+function setModeText(){
+  $("modeNote").textContent = mode==="live" ? T("note.live") : mode==="bench" ? T("note.bench") : "";
+  if (mode==="view" && cur) { $("viewTxt").textContent = T("view.site",{x:cur.title||cur.node}); $("viewBack").textContent = T("back."+back); }
+}
+function setMode(m){ mode = m;
+  $("mLive").classList.toggle("on", m==="live"); $("mBench").classList.toggle("on", m==="bench");
+  $("benchCard").hidden = m!=="bench"; $("viewBar").hidden = m!=="view";
+  clearInterval(liveTimer); clearInterval(stripTimer); $("liveStrip").hidden = true; setModeText();
+  if (m==="live"){ lastLiveId=null; pollLive(); liveTimer=setInterval(pollLive,2000); pollStrip(); stripTimer=setInterval(pollStrip,1000); }
+  if (m==="bench"){ setNode("sim",0,"SN-SIM-01"); benchScan(); }
+}
+$("mLive").onclick = () => setMode("live"); $("mBench").onclick = () => setMode("bench");
+$("viewBack").onclick = () => { if (back==="fleet") { setMode("bench"); showTab("fleet"); } else if (back==="log") { setMode("bench"); showTab("log"); } else setMode("bench"); };
+/* ---------- live sensor strip (raw INA219 readings via /telemetry) ---------- */
+let stripTimer = null;
+async function pollStrip(){
+  const el = $("liveStrip");
+  try {
+    const d = await fetch("/telemetry?node_id=SN-001").then(r=>r.json());
+    const rs = d.readings || [], last = rs[rs.length-1];
+    if (mode!=="live" || !last || d.now - last.ts > 10) { el.hidden = true; return; }
+    el.hidden = false;
+    $("lsTag").innerHTML = last.source==="sim" ? `<span class="simtag">${T("tag.sim")}</span>` : `<span class="realtag">${T("tag.real")}</span>`;
+    $("lsV").textContent = last.v==null ? "-" : nf(last.v,2)+" V";
+    $("lsI").textContent = nf(last.ma,1)+" mA";
+    $("lsP").textContent = last.v==null ? "-" : nf(last.v*last.ma,1)+" mW";
+    const w = rs.filter(r => d.now - r.ts <= 60);
+    if (w.length > 1) {
+      const ys = w.map(r=>r.ma), lo = Math.min(...ys), hi = Math.max(...ys), sp = (hi-lo) || 1;
+      $("lsSvg").innerHTML = `<polyline fill="none" stroke="#1E4E9A" stroke-width="1.8" vector-effect="non-scaling-stroke" points="${
+        w.map(r => ((r.ts-(d.now-60))/60*240).toFixed(1)+","+(36-(r.ma-lo)/sp*32).toFixed(1)).join(" ")}"/>`;
+    } else $("lsSvg").innerHTML = "";
+  } catch(e) { el.hidden = true; } }
+async function pollLive(){
+  try { const r = await fetch("/latest").then(r=>r.json());
+    if (!r || !r.id) { setNode("wait"); return; }
+    const age = Date.now()/1000 - r.ts; setNode(r.source==="real" ? (age<30?"online":"stale") : "sim", age, r.node_id);
+    if (r.id !== lastLiveId && mode==="live") { lastLiveId = r.id; show({payload:r.payload, result:r.result, source:r.source, ts:r.ts, node:r.node_id, id:r.id}); loadRecent(); }
+  } catch(e) { setNode("off"); } }
+function setNode(s, age, node){ setNode.last = [s,age,node]; const d=$("nodeDot"); d.className="dot";
+  if (s==="online"){ d.classList.add("on"); $("nodeTxt").textContent=T("node.online",{node, s:age.toFixed(0)}); }
+  else if (s==="stale") $("nodeTxt").textContent=T("node.stale",{node, m:(age/60).toFixed(0)});
+  else if (s==="sim"){ d.classList.add("sim"); $("nodeTxt").textContent=T("node.sim",{node:node||"SN-SIM-01"}); }
+  else if (s==="wait") $("nodeTxt").textContent=T("node.wait");
+  else { d.classList.add("off"); $("nodeTxt").textContent=T("node.off"); } }
+async function openScan(id, from){ const r = await fetch("/sweep/"+id).then(r=>r.json()); back = from||"diag"; showTab("diag"); setMode("view");
+  show({payload:r.payload, result:r.result, source:r.source, ts:r.ts, node:r.node_id, id:r.id, title:r.node_id+" #"+r.id}); setModeText(); }
+async function openSite(site){ const r = await fetch(`/fleet/site/${site}?tariff=${$("tariff").value}`).then(r=>r.json()); back = "fleet"; showTab("diag"); setMode("view");
+  show({payload:r.payload, result:r.result, source:"sim", ts:r.ts, node:site, title:site+", "+r.locality}); setModeText(); }
+function openRow(r){ closeDrawer(); if (r.live) openScan(r.sweep_id, "fleet"); else openSite(r.site); }
+
+/* ---------- diagnosis rendering ---------- */
+function show(c){ cur = c; render(); }
+function render(){
+  const {payload:p, result:r, source} = cur;
+  $("siteChip").textContent = cur.node;
+  $("srcTag").innerHTML = source==="sim" ? `<span class="simtag">${T("tag.sim")}</span>` : `<span class="realtag">${T("tag.real")}</span>`;
+  $("viewTag").innerHTML = $("srcTag").innerHTML;
+  const [sc, sk] = sevOf(r);
+  $("sev").className = "chip "+sc; $("sev").textContent = T(sk);
+  $("conf").textContent = T("f."+r.label) + " · " + T("fig.conf",{x:pc(r.confidence)}) + " · " + clock(cur.ts||Date.now()/1000);
+  $("vText").textContent = say(r.verdict, r.headline);
+  $("vWhere").textContent = say(r.location, "-");
+  $("vBasis").textContent = (r.location && r.location.basis && (r.location.kind!=="all" && r.location.kind!=="joint")) ? T("loc.basis."+r.location.basis) : "";
+  $("vDo").textContent = say(r.act, r.action);
+  $("fP").innerHTML = `${nf(r.measured.pmax_mw,0)} <small>mW</small>`; $("fPe").textContent = T("fig.expected",{x:nf(r.expected.pmax_mw,0)});
+  $("fL").textContent = nf(r.loss_pct,1)+"%"; $("fLb").style.width = Math.min(100,r.loss_pct)+"%";
+  $("fM").innerHTML = `₹${nf(r.money.inr_day,1)} <small>${T("fig.perday")}</small>`; $("fMy").textContent = T("fig.peryear",{x:nf(r.money.inr_year,0), k:r.assumptions.kwp});
+  $("fG").textContent = nf(r.light_pct,0)+"%"; $("fT").textContent = T("fig.temp",{x:nf(r.temp_c,1)});
+  drawString(); drawChart();
+  const ev = r.ev ? r.ev.map(i => T(i.key,i.p)) : (r.evidence||[]);
+  $("ev").innerHTML = ev.map(t => `<li>${esc(t)}</li>`).join("");
+  $("rule").innerHTML = (r.rules_agree ? esc(T("rule.agree")) : `<span style="color:var(--warn)">${esc(T("rule.disagree",{x:T("f."+r.rule_label)}))}</span>`)
+    + (r.out_of_distribution ? " "+esc(T("ood")) : "");
+  const faulty = r.status==="ok" && r.label!=="healthy" && r.money.inr_day>0;
+  $("payCard").hidden = !faulty;
+  $("ticket").hidden = r.status==="ok" && r.label==="healthy";
+  if (faulty) { if (render.fixFor !== r.label) { $("fix").value = FIX[r.label]; render.fixFor = r.label; } payback(); }
+  details();
+  [...$("strip").children].forEach(b => b.classList.toggle("sel", +b.dataset.id === cur.id));
+}
+function payback(){ const r = cur.result, cost = +$("fix").value||0, d = cost / r.money.inr_day;
+  $("payRes").textContent = d <= 1 ? T("pay.fast") : T("pay.result",{d:Math.ceil(d)}); }
+$("fix").addEventListener("input", () => cur && payback());
+
+function drawString(){
+  const r = cur.result, L = r.location || {kind:"none"}, lab = r.status==="ok" ? r.label : "none";
+  const bad="#C4321C", amber="#A66A00", ink="#44505C", wire="#14202B", py=56, pw=150, ph=96, X=[40,250];
+  const fp = L.panel ? (L.panel==="A"?0:1) : null, unsure = L.kind==="one_panel"||L.kind==="diode_one";
+  const hit = mode==="bench", hasMid = !!cur.payload.mid_v;
+  const panel = i => { const x=X[i], shaded = L.kind==="panel"&&fp===i, soil = lab==="soiling";
+    const st = (shaded||soil) ? bad : (L.kind==="one_panel" ? amber : "#7C8794");
+    let s = `<text x="${x}" y="${py-9}" font-size="13" font-weight="700" fill="${ink}">${esc(T("loc.panel",{x:"AB"[i]}))}</text>
+      <rect x="${x}" y="${py}" width="${pw}" height="${ph}" rx="5" fill="#E7EEF9" stroke="${st}" stroke-width="${(shaded||soil||L.kind==="one_panel")?2.2:1.3}" ${L.kind==="one_panel"?'stroke-dasharray="6 4"':''}/>`;
+    for (let c=0;c<4;c++) for (let q=0;q<2;q++) s += `<rect x="${x+9+c*34}" y="${py+8+q*42}" width="30" height="38" fill="#C6D5EF" stroke="#A9BDE2" stroke-width=".8"/>`;
+    if (shaded) s += `<path d="M${x} ${py} h${pw*0.72} l-${pw*0.3} ${ph} H${x} Z" fill="#14202B" opacity=".5"/>`;
+    if (soil) s += `<rect x="${x}" y="${py}" width="${pw}" height="${ph}" rx="5" fill="#8E6420" opacity=".3"/>`;
+    if (hit) s += `<rect class="hit" data-hit="p${"AB"[i]}" x="${x}" y="${py}" width="${pw}" height="${ph}" rx="5"/>`;
+    return s; };
+  const diode = i => { const cx=X[i]+75, b = L.kind==="diode"&&fp===i, col = b ? bad : (L.kind==="diode_one" ? amber : ink);
+    let s = `<line x1="${cx}" y1="${py+ph}" x2="${cx}" y2="166" stroke="${col}" stroke-width="1.5"/>
+      <path d="M${cx-8} 166 h16 l-8 14 Z" fill="${b?bad:"#fff"}" stroke="${col}" stroke-width="1.5"/><line x1="${cx-9}" y1="181" x2="${cx+9}" y2="181" stroke="${col}" stroke-width="1.8"/>`;
+    if (b) s += `<path d="M${cx-14} 160 V186" stroke="${bad}" stroke-width="2.4"/>`;
+    if (hit) s += `<rect class="hit" data-hit="d${"AB"[i]}" x="${cx-20}" y="${py+ph+2}" width="40" height="34" rx="4"/>`;
+    return s; };
+  const co = (x,y,tx,ty,txt,cls,extra) => `<g class="co ${cls||""}">${extra||""}<line x1="${x}" y1="${y}" x2="${tx}" y2="${ty}"/><circle class="pulse" cx="${x}" cy="${y}" r="5"/><circle cx="${x}" cy="${y}" r="3.5"/><rect rx="4"/><text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="central">${esc(txt)}</text></g>`;
+  const where = say(L, "");
+  let call = "";
+  if (L.kind==="panel") call = co(X[fp]+75, py, X[fp]+75, 15, where);
+  else if (L.kind==="all" || L.kind==="one_panel") call = co(X[0]+pw, py, 220, 15, where, L.kind==="all"?"":"amber", `<line x1="${X[1]}" y1="${py}" x2="220" y2="15"/><circle cx="${X[1]}" cy="${py}" r="3.5"/>`);
+  else if (L.kind==="joint") call = co(435, 112, 435, 164, where);
+  else if (L.kind==="diode") call = co(X[fp]+75, 184, X[fp]+75, 204, where);
+  else if (L.kind==="diode_one") call = co(X[0]+84, 174, 220, 204, where, "amber", `<line x1="${X[1]+66}" y1="174" x2="220" y2="204"/><circle cx="${X[1]+66}" cy="174" r="3.5"/>`);
+  const jointBad = L.kind==="joint";
+  const led = r.status!=="ok" ? "#E8A100" : (r.label==="healthy" ? "#1F7A4D" : bad);
+  $("schem").innerHTML = `<svg viewBox="0 0 640 252" role="img" aria-label="${esc(where)}">
+    <path d="M${X[0]} 104 H22 V240 H590 V138" fill="none" stroke="${wire}" stroke-width="1.4"/>
+    ${hasMid ? `<path d="M220 104 V224 H520 V138" fill="none" stroke="#8A949E" stroke-width="1.3" stroke-dasharray="3 4"/><circle cx="220" cy="104" r="3" fill="#8A949E"/><text x="512" y="219" text-anchor="end" font-size="11.5" fill="#6E7985">${esc(T("c.mid"))}</text>` : ""}
+    <line x1="${X[0]+pw}" y1="104" x2="${X[1]}" y2="104" stroke="${wire}" stroke-width="1.6"/>
+    ${panel(0)}${panel(1)}${diode(0)}${diode(1)}
+    <line x1="${X[1]+pw}" y1="104" x2="418" y2="104" stroke="${wire}" stroke-width="1.6"/>
+    ${jointBad ? `<path d="M418 104 l5 -9 l8 18 l8 -18 l8 18 l5 -9" fill="none" stroke="${bad}" stroke-width="2.2"/>`
+               : `<rect x="418" y="97" width="15" height="14" rx="2" fill="#fff" stroke="${ink}" stroke-width="1.4"/><rect x="437" y="97" width="15" height="14" rx="2" fill="${ink}"/>`}
+    <text x="435" y="88" text-anchor="middle" font-size="11.5" fill="#6E7985">MC4</text>
+    ${hit ? `<rect class="hit" data-hit="joint" x="410" y="76" width="50" height="44" rx="4"/>` : ""}
+    <line x1="452" y1="104" x2="490" y2="104" stroke="${wire}" stroke-width="1.6"/>
+    <rect x="490" y="70" width="120" height="68" rx="7" fill="#fff" stroke="${wire}" stroke-width="1.5"/>
+    <text x="550" y="100" text-anchor="middle" font-size="13.5" font-weight="700" fill="${wire}">SN-1</text>
+    <text x="550" y="118" text-anchor="middle" font-size="11.5" fill="#6E7985">ESP32 + INA219</text>
+    <circle cx="598" cy="82" r="4.5" fill="${led}"/>
+    <rect x="564" y="16" width="46" height="26" rx="3" fill="#FCEFC9" stroke="#E8A100" stroke-width="1.3"/>
+    <line x1="587" y1="42" x2="587" y2="70" stroke="${wire}" stroke-width="1.2"/>
+    <text x="558" y="33" text-anchor="end" font-size="11.5" fill="#6E7985">${nf(r.light_pct,0)}%</text>
+    ${call}</svg>`;
+  $("schem").querySelectorAll("g.co").forEach(g => { const t=g.querySelector("text"), b=t.getBBox(), rc=g.querySelector("rect");
+    let dx = 0; if (b.x-9 < 2) dx = 2-(b.x-9); if (b.x+b.width+9 > 638) dx = 638-(b.x+b.width+9);
+    if (dx) { t.setAttribute("x", +t.getAttribute("x")+dx); }
+    const bb = dx ? t.getBBox() : b;
+    rc.setAttribute("x", bb.x-9); rc.setAttribute("y", bb.y-4); rc.setAttribute("width", bb.width+18); rc.setAttribute("height", bb.height+8); });
+}
+
+function drawChart(){
+  if (!cur || tab!=="diag") return;
+  const r = cur.result, P = kind==="pv";
+  const m = cur.payload.points.slice().sort((a,b)=>a[0]-b[0]), e = r.expected_points.slice().sort((a,b)=>a[0]-b[0]);
+  const y = q => P ? q[0]*q[1] : q[1];
+  const mv = m.map(q=>q[0]), my = m.map(y), ev = e.map(q=>q[0]), ey = e.map(y), vmax = mv[mv.length-1];
+  const floor = ev.map((v,i) => Math.min(ey[i], v > vmax ? 0 : interp(mv, my, v)));
+  const font = {family:getComputedStyle(document.body).fontFamily, size:12.5, color:"#44505C"};
+  const traces = [
+    {x:ev, y:floor, mode:"lines", line:{width:0}, hoverinfo:"skip"},
+    {x:ev, y:ey, mode:"lines", fill:"tonexty", fillcolor:"rgba(196,50,28,.13)", line:{color:"#8A949E", dash:"dash", width:2},
+      hovertemplate:"%{x:.2f} V, %{y:.0f}<extra>"+T("chart.expected")+"</extra>"},
+    {x:mv, y:my, mode:"lines+markers", line:{color:"#1E4E9A", width:2.6}, marker:{size:4, color:"#1E4E9A"},
+      hovertemplate:"%{x:.2f} V, %{y:.0f}<extra>"+T("chart.measured")+"</extra>"}];
+  const ann = [];
+  if (r.status==="ok" && r.label!=="healthy"){
+    const mi = m.map(q=>q[1]), imax = Math.max(...mi); let k = -1;
+    if (r.label==="partial_shade"){ let best=0; for (let j=0;j<m.length-3;j++){ if (mv[j] < 0.12*vmax || mv[j] > 0.9*vmax) continue; const d = mi[j]-mi[j+3]; if (d>best){ best=d; k=j+1; } } }
+    else if (r.label==="series_resistance"){ for (let j=0;j<m.length;j++) if (mi[j] >= 0.55*imax) k=j; }
+    else if (r.label==="soiling"){ let best=1e9; for (let j=0;j<m.length;j++){ const d=Math.abs(mv[j]-0.3*vmax); if (d<best){ best=d; k=j; } } }
+    else k = m.length-1;
+    if (k>=0) ann.push({x:mv[k], y:my[k], text:T("c."+r.label), showarrow:true, arrowhead:0, arrowwidth:1.3, arrowcolor:"#C4321C",
+      ax: r.label==="bypass_short" ? -70 : 46, ay: r.label==="soiling" ? 40 : -44, font:{...font, color:"#C4321C", size:12.5}, bgcolor:"#fff", bordercolor:"#F0C6BD", borderpad:4});
+  }
+  if (P){ let k=0; my.forEach((v,i)=>{ if (v>my[k]) k=i; }); let j=0; ey.forEach((v,i)=>{ if (v>ey[j]) j=i; });
+    traces.push({x:[ev[j]], y:[ey[j]], mode:"markers", marker:{size:9, color:"#fff", line:{color:"#8A949E", width:2}}, hovertemplate:nf(ey[j],0)+" mW<extra></extra>"});
+    traces.push({x:[mv[k]], y:[my[k]], mode:"markers", marker:{size:10, color:"#1E4E9A", line:{color:"#fff", width:2}}, hovertemplate:nf(my[k],0)+" mW<extra></extra>"}); }
+  const ax = t => ({title:{text:t, font}, gridcolor:"#ECEFF2", zeroline:false, linecolor:"#C8CED6", rangemode:"tozero", tickfont:font});
+  Plotly.react("plot", traces, {margin:{l:58,r:14,t:10,b:46}, paper_bgcolor:"#fff", plot_bgcolor:"#fff", font, showlegend:false, annotations:ann,
+    xaxis:ax(T("ax.v")), yaxis:ax(P?T("ax.p"):T("ax.i")), hoverlabel:{font}}, {displayModeBar:false, responsive:true});
+}
+$("kIV").onclick = () => { kind="iv"; $("kIV").classList.add("on"); $("kPV").classList.remove("on"); drawChart(); };
+$("kPV").onclick = () => { kind="pv"; $("kPV").classList.add("on"); $("kIV").classList.remove("on"); drawChart(); };
+
+function details(){
+  const r = cur.result, p = cur.payload, m = r.measured, e = r.expected, f = r.features;
+  const rows = [["Short-circuit current, Isc",m.isc_ma,e.isc_ma,"mA",1],["Open-circuit voltage, Voc",m.voc_v,e.voc_v,"V",2],["Maximum power, Pmax",m.pmax_mw,e.pmax_mw,"mW",0],
+    ["Fill factor",m.ff,e.ff,"",3],["Voltage at maximum power, Vmp",m.vmp_v,null,"V",2],["Current at maximum power, Imp",m.imp_ma,null,"mA",1],
+    ["Series-resistance index",f.rs_ratio,1,"x",2],["Mid-curve step score",f.step_score,null,"",2],["Peaks in the power curve",f.n_peaks,1,"",0]];
+  $("params").innerHTML = rows.map(([n,a,b,u,d]) => { let dl = "";
+    if (b!=null && b!==0){ const q=(a/b-1)*100; dl = `<span class="${Math.abs(q)>5?"neg":""}">${q>=0?"+":""}${q.toFixed(1)}%</span>`; }
+    return `<tr><td>${n}</td><td class="n">${nf(a,d)} ${u}</td><td class="n">${b==null?"":nf(b,d)+" "+u}</td><td class="n">${dl}</td></tr>`; }).join("");
+  const ks = Object.keys(r.probs).sort((a,b)=>r.probs[b]-r.probs[a]);
+  $("probs").innerHTML = ks.map(k => `<div class="prob ${k===r.label?"top":""}"><span>${esc(T("f."+k))}</span><span class="t"><i style="width:${(r.probs[k]*100).toFixed(1)}%"></i></span><span class="num" style="text-align:right">${(r.probs[k]*100).toFixed(1)}%</span></div>`).join("");
+  const pts = p.points, meta = {"Node":cur.node, "Source":cur.source==="sim"?"simulated on the physics twin":"measured by the node",
+    "Sweep":`${pts.length} points, ${nf(Math.min(...pts.map(q=>q[0])),2)} to ${nf(Math.max(...pts.map(q=>q[0])),2)} V`,
+    "Reference cell":nf(p.ref_isc_ma,1)+" mA", "Panel temperature":nf(p.temp_c,1)+" °C",
+    "Mid-point sensor":p.mid_v?"present":"not fitted", "Firmware":p.fw||"-", "Model":"Calibrated Random Forest, 300 trees, with physics rules as cross-check"};
+  $("meta").innerHTML = Object.entries(meta).map(([k,v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+}
+$("dlJson").onclick = () => download(`${cur.node}-sweep.json`, JSON.stringify({payload:cur.payload, result:cur.result}, null, 1), "application/json");
+$("dlCsv").onclick = () => download(`${cur.node}-points.csv`, "volts,milliamps,mid_volts\n"+cur.payload.points.map((q,i)=>`${q[0]},${q[1]},${cur.payload.mid_v?cur.payload.mid_v[i]:""}`).join("\n"), "text/csv");
+$("print").onclick = () => { $("eng").open = true; setTimeout(()=>window.print(), 150); };
+$("ticket").onclick = async () => { const r = await post("/tickets", {site:cur.node, label:cur.result.label, sweep_id:cur.id||null}); toast(T("ticket.done",{id:r.id})); fleet=null; loadFleet(true); };
+
+async function loadRecent(){
+  let h = []; try { h = await fetch("/history?limit=48").then(r=>r.json()); } catch(e) {}
+  if (!h.length) { $("strip").innerHTML = `<span class="small">${esc(T("recent.empty"))}</span>`; return; }
+  $("strip").innerHTML = h.reverse().map(r => { const [sc] = sevOf(r);
+    return `<button class="${sc}${cur&&cur.id===r.id?" sel":""}" data-id="${r.id}" title="#${r.id} ${clock(r.ts)} ${esc(T("f."+r.label))}, ${nf(r.loss_pct,1)}%"></button>`; }).join("");
+}
+$("strip").onclick = e => { if (e.target.dataset.id) openScan(e.target.dataset.id, "diag"); };
+
+/* ---------- fleet + alerts ---------- */
+async function loadFleet(quiet){
+  try { fleet = await fetch(`/fleet?tariff=${$("tariff").value}`).then(r=>r.json()); } catch(e) { return; }
+  drawAlerts(); if (tab==="fleet" || !quiet) drawFleet();
+}
+function drawFleet(){
+  if (!fleet || tab!=="fleet") return; const d = fleet;
+  $("qT").textContent=d.total; $("qH").textContent=d.healthy; $("qA").textContent=d.attention; $("qR").textContent="₹"+nf(d.inr_day_at_risk,0);
+  $("filters").innerHTML = `<button data-f="all" class="${fleetFilter==="all"?"on":""}">${esc(T("fleet.all"))} ${d.total}</button>` +
+    FAULTS.filter(k=>d.distribution[k]).map(k => `<button data-f="${k}" class="${fleetFilter===k?"on":""}">${esc(T("f."+k))} ${d.distribution[k]}</button>`).join("");
+  const rows = d.rows.filter(r => fleetFilter==="all" || r.label===fleetFilter);
+  $("qRows").innerHTML = rows.map(r => { const [sc] = sevOf(r);
+    const tag = r.live ? (r.source==="real" ? '<span class="realtag">Live</span>' : '<span class="simtag">Live</span>') : "";
+    return `<tr class="click" data-site="${r.site}"><td><b>${r.site}</b> ${tag}</td><td>${esc(r.locality)}</td><td><span class="chip ${sc}">${esc(T("f."+r.label))}</span></td>
+      <td>${r.label==="healthy"?"":esc(say(r.location,""))}</td><td class="n">${nf(r.loss_pct,1)}%</td><td class="n"><b>${nf(r.inr_day,1)}</b></td><td class="nw">${esc(ago(r.minutes_ago))}</td><td>${esc(r.ticket||"")}</td></tr>`; }).join("");
+  const font = {family:getComputedStyle(document.body).fontFamily, size:12, color:"#44505C"};
+  const traces = FAULTS.filter(k => rows.some(r=>r.label===k)).map(k => { const rs = rows.filter(r=>r.label===k);
+    return {x:rs.map(r=>r.lon), y:rs.map(r=>r.lat), customdata:rs.map(r=>r.site), name:T("f."+k), mode:k==="healthy"?"markers":"markers+text",
+      text:rs.map(r=>r.site), textposition:"top center", textfont:{...font, size:11},
+      hovertext:rs.map(r=>`${r.site}, ${r.locality}<br>${T("f."+r.label)}<br>₹${nf(r.inr_day,1)} ${T("fig.perday")}`), hoverinfo:"text",
+      marker:{color:FCOL[k], size:rs.map(r=>k==="healthy"?9:11+Math.sqrt(r.inr_day)*2.6), opacity:k==="healthy"?.55:.9, line:{color:"#fff", width:1.5}}}; });
+  Plotly.react("map", traces, {margin:{l:6,r:6,t:6,b:6}, paper_bgcolor:"#fff", plot_bgcolor:"#F7F8FA", font, hoverlabel:{font},
+    xaxis:{visible:false}, yaxis:{visible:false, scaleanchor:"x", scaleratio:1.03},
+    legend:{orientation:"h", y:-0.02, font}, showlegend:true}, {displayModeBar:false, responsive:true});
+  $("map").removeAllListeners && $("map").removeAllListeners("plotly_click");
+  $("map").on("plotly_click", ev => { const s = ev.points[0].customdata; const r = fleet.rows.find(q=>q.site===s); if (r) openRow(r); });
+}
+$("filters").onclick = e => { if (e.target.dataset.f) { fleetFilter = e.target.dataset.f; drawFleet(); } };
+$("qRows").onclick = e => { const tr = e.target.closest("tr"); if (tr) { const r = fleet.rows.find(q=>q.site===tr.dataset.site); if (r) openRow(r); } };
+function drawAlerts(){
+  if (!fleet) return; const a = fleet.rows.filter(r => r.label!=="healthy" || r.status!=="ok");
+  $("bellN").hidden = !a.length; $("bellN").textContent = a.length;
+  $("alertList").innerHTML = a.length ? a.map(r => { const [sc, sk] = sevOf(r);
+    return `<button class="al" data-site="${r.site}"><div class="t"><span>${esc(T("f."+r.label))}</span><span class="num">₹${nf(r.inr_day,1)} ${esc(T("fig.perday"))}</span></div>
+      <div class="w">${esc(say(r.location,""))}</div><div class="m">${r.site}, ${esc(r.locality)} · ${esc(ago(r.minutes_ago))} · <span class="chip ${sc}">${esc(T(sk))}</span></div></button>`; }).join("")
+    : `<p class="small">${esc(T("alerts.empty"))}</p>`;
+}
+const closeDrawer = () => document.body.classList.remove("drawer");
+$("bell").onclick = () => { document.body.classList.add("drawer"); if (!fleet) loadFleet(true); };
+$("drawerX").onclick = closeDrawer; $("shade").onclick = closeDrawer;
+document.addEventListener("keydown", e => { if (e.key==="Escape") closeDrawer(); });
+$("alertList").onclick = e => { const b = e.target.closest(".al"); if (b) { const r = fleet.rows.find(q=>q.site===b.dataset.site); if (r) openRow(r); } };
+
+/* ---------- model ---------- */
+async function loadModel(){
+  const b = await fetch("/benchmark").then(r=>r.json()); if (!b.standard) return;
+  $("bench").innerHTML = ["standard","hard"].map(k => `<tr><td>${k==="standard"?"Normal conditions":"Hard cases"}</td><td class="n">${b[k].rules.macro_f1.toFixed(3)}</td><td class="n"><b>${b[k].ai.macro_f1.toFixed(3)}</b></td></tr>`).join("");
+  $("nTrain").textContent = (b.n_train||0).toLocaleString("en-IN");
+  const imp = Object.entries(b.importances||{}).slice(0,10).reverse().map(([k,v]) => [FEAT[k]||k, v]);
+  const font = {family:getComputedStyle(document.body).fontFamily, size:12.5, color:"#44505C"};
+  Plotly.react("pImp", [{x:imp.map(q=>q[1]), y:imp.map(q=>q[0]), type:"bar", orientation:"h", marker:{color:"#1E4E9A"}, hovertemplate:"%{x:.3f}<extra></extra>"}],
+    {margin:{l:200,r:12,t:6,b:30}, paper_bgcolor:"#fff", plot_bgcolor:"#fff", font, xaxis:{gridcolor:"#ECEFF2"}}, {displayModeBar:false, responsive:true});
+  const cm = M => { const mx = Math.max(...M.flat()); return `<table class="cm"><tr><th></th>${b.classes.map(c=>`<th>${esc(STR.en["f."+c])}</th>`).join("")}</tr>` +
+    M.map((row,i) => `<tr><th style="text-align:left">${esc(STR.en["f."+b.classes[i]])}</th>${row.map((v,j) => `<td style="background:${i===j?`rgba(31,122,77,${0.1+0.6*v/mx})`:(v?`rgba(196,50,28,${0.1+0.6*v/mx})`:"#F7F8FA")}">${v}</td>`).join("")}</tr>`).join("") + "</table>"; };
+  $("cmR").innerHTML = cm(b.hard.rules.confusion); $("cmA").innerHTML = cm(b.hard.ai.confusion);
+}
+
+/* ---------- scan log ---------- */
+async function loadLog(){
+  const h = await fetch("/history?limit=100").then(r=>r.json());
+  $("logRows").innerHTML = h.map(r => { const [sc] = sevOf(r);
+    return `<tr class="click" data-id="${r.id}"><td>${r.id}</td><td>${clock(r.ts)}</td><td>${esc(r.node_id)}</td>
+    <td>${r.source==="sim"?`<span class="simtag">${esc(T("tag.sim"))}</span>`:`<span class="realtag">${esc(T("tag.real"))}</span>`}</td>
+    <td><span class="chip ${sc}">${esc(T("f."+r.label))}</span></td><td>${r.label==="healthy"?"":esc(say(r.location,""))}</td><td class="n">${pc(r.confidence)}</td>
+    <td class="n">${nf(r.loss_pct,1)}%</td><td class="n">${nf(r.inr_day,1)}</td><td>${esc(T("f."+r.rule_label))}</td></tr>`; }).join("")
+    || `<tr><td colspan="10" class="small">${esc(T("log.empty"))}</td></tr>`;
+}
+$("logRows").onclick = e => { const tr = e.target.closest("tr"); if (tr && tr.dataset.id) openScan(tr.dataset.id, "log"); };
+
+/* ---------- start ---------- */
+(async function(){
+  try { const d = await fetch("/i18n").then(r=>r.json()); STR = d.strings; LANGS = d.langs; } catch(e) { setNode("off"); return; }
+  if (!STR[LANG]) LANG = "en";
+  $("lang").innerHTML = Object.entries(LANGS).map(([k,v]) => `<button data-l="${k}">${v}</button>`).join("");
+  $("lang").onclick = e => { if (e.target.dataset.l) { setLang(e.target.dataset.l, true); const n = setNode.last; if (n) setNode(...n); } };
+  setLang(LANG, true); setMode("bench"); loadFleet(true);
+  setInterval(() => { if (!document.body.classList.contains("drawer")) loadFleet(true); }, 30000);
+})();
+</script>
+</body>
+</html>
