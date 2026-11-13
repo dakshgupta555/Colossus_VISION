@@ -57,6 +57,19 @@ h2{font-size:15px;font-weight:700;margin:0 0 10px}
 .livestrip[hidden]{display:none}
 .livestrip .ls{display:flex;flex-direction:column;line-height:1.15}.livestrip .ls span{font-size:11px;color:var(--muted)}.livestrip .ls b{font-size:18px}
 .livestrip .lspark{display:flex;flex-direction:column;margin-left:auto}.livestrip svg{width:240px;height:40px}
+.modeltag{font-size:12px;font-weight:700;padding:3px 9px;border-radius:5px;color:var(--cell);background:var(--cell-soft);border:1px solid #CBD9EF}
+.lctl{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.lctl .chip{font-size:14px;padding:5px 12px}
+.guide p{margin:3px 0;font-size:14px;color:var(--ink2)}
+.lverdict h1{font-size:24px;line-height:1.3;font-weight:700;margin:10px 0 14px;max-width:34em}
+.lverdict .figs{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line2);padding-top:14px;margin-top:6px}
+.wi{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.wi h3{margin:0 0 2px;font-size:14px}
+.wi .p{height:200px}
+#lplot{height:400px} #trend{height:360px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:#F7F8FA;border:1px solid var(--line2);border-radius:6px;padding:4px 8px;display:inline-block}
+#liveView>.card{margin-bottom:14px}
+@media (max-width:900px){.lverdict .figs,.wi{grid-template-columns:1fr}}
 .realtag{font-size:12px;font-weight:700;padding:3px 9px;border-radius:5px;color:var(--ok);background:var(--ok-soft);border:1px solid #BFE0CD}
 .chip{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:5px;border:1px solid var(--line);color:var(--ink2);background:#F7F8FA;white-space:nowrap}
 .chip.bad{color:var(--bad);background:var(--bad-soft);border-color:#F0C6BD}
@@ -256,6 +269,64 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
     </details>
   </div>
 
+  <div id="liveView" hidden>
+    <div class="card lctl">
+      <span class="chip" id="lvState"></span><span class="small" id="lvStateD"></span>
+      <div class="grow"></div>
+      <span class="small" id="lvBase"></span>
+      <button class="btn dark" id="setBase" data-t="live.base.btn"></button>
+    </div>
+    <div class="card guide">
+      <b data-t="live.guide.title"></b>
+      <p data-t="live.guide.1"></p><p data-t="live.guide.2"></p><p data-t="live.guide.3"></p>
+    </div>
+    <div class="card lverdict">
+      <div class="row"><b data-t="live.v.title"></b><span class="realtag" data-t="tag.real"></span><span class="chip" id="lvSev" hidden></span></div>
+      <h1 id="lvFinding"></h1>
+      <div class="figs">
+        <div class="fig"><div class="k" data-t="live.isc"></div><div class="v num" id="lvIsc"></div><div class="s num" id="lvIscD"></div></div>
+        <div class="fig"><div class="k" data-t="live.voc"></div><div class="v num" id="lvVoc"></div><div class="s num" id="lvVocD"></div></div>
+        <div class="fig"><div class="k" data-t="live.loss"></div><div class="v num" id="lvLoss"></div><div class="meter"><i id="lvLossB"></i></div><div class="s" data-t="live.loss.note"></div></div>
+        <div class="fig"><div class="k" data-t="live.money"></div><div class="v num" id="lvMoney"></div><div class="s num" id="lvMoneyY"></div><div class="s" id="lvScaled"></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row"><h2 style="margin:0" data-t="live.chart.title"></h2><span class="realtag" data-t="tag.real"></span><span class="modeltag" data-t="tag.model"></span><div class="grow"></div>
+        <div class="seg noprint"><button id="lkIV" class="on" data-t="chart.iv"></button><button id="lkPV" data-t="chart.pv"></button></div></div>
+      <p class="small" style="margin:4px 0" data-t="live.chart.legend"></p>
+      <p class="small" id="lplotMsg" hidden></p>
+      <div id="lplot"></div>
+      <p class="small" style="margin:4px 0;font-weight:700" id="lcLost"></p>
+      <p class="small" style="margin:0" data-t="live.chart.model"></p>
+    </div>
+    <div class="card">
+      <div class="row"><h2 style="margin:0" data-t="live.wi.title"></h2><span class="modeltag" data-t="tag.model"></span></div>
+      <p class="small" id="wiNone" style="margin:6px 0 0" data-t="live.wi.none"></p>
+      <div id="wiGrid" hidden>
+        <p class="small" id="wiNote" style="margin:4px 0 8px"></p>
+        <div class="wi">
+          <div><h3 data-t="live.wi.dust"></h3><div class="p" id="wi_dust"></div></div>
+          <div><h3 data-t="live.wi.shade"></h3><div class="p" id="wi_shade"></div><p class="small" id="wiUnreach" hidden data-t="live.wi.unreach"></p></div>
+          <div><h3 data-t="live.wi.joint"></h3><div class="p" id="wi_joint"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row"><h2 style="margin:0" data-t="live.trend.title"></h2><span class="realtag" data-t="tag.real"></span></div>
+      <div id="trend"></div>
+    </div>
+    <details class="card eng"><summary data-t="live.eng.title"></summary>
+      <dl class="meta" style="margin-top:10px">
+        <dt data-t="live.eng.raw"></dt><dd><span class="mono" id="lvRaw">-</span></dd>
+        <dt data-t="live.eng.rate"></dt><dd class="num" id="lvRate">-</dd>
+        <dt data-t="live.eng.avg"></dt><dd class="num" id="lvAvg">-</dd>
+      </dl>
+      <p class="small" data-t="live.eng.step"></p>
+      <p class="small" data-t="live.eng.model"></p>
+    </details>
+  </div>
+
+  <div id="simView">
   <div class="card verdict">
     <div>
       <div class="row"><span class="chip" id="sev"></span><span class="small" id="conf"></span></div>
@@ -305,6 +376,7 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
       </div>
     </div>
   </details>
+  </div>
 </section>
 
 <!-- ===================== FLEET ===================== -->
@@ -334,6 +406,7 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
       <table><thead><tr><th>Test set</th><th class="n">Physics rules</th><th class="n">AI</th></tr></thead><tbody id="bench"></tbody></table>
       <p class="small">Score is macro-F1, where 1.0 is perfect. Both test sets are simulated, generated with random seeds the model never saw. Hard cases are dim light (15 to 35%), hot panels (55 to 68 °C) and mild faults.</p>
       <p class="small"><b>How it works.</b> A Random Forest of 300 trees reads 22 physics features of the curve. Its probabilities are calibrated, an IsolationForest flags curves outside the training range, and the physics rules run alongside as a cross-check. Trained on <span id="nTrain" class="num"></span> curves from the pvlib twin of our panels. Real-bench results get added once we record real sweeps.</p>
+      <p class="small" style="font-weight:700" data-t="model.real"></p>
     </div>
     <div class="card"><h2>What the model looks at most</h2><div id="pImp" style="height:330px"></div></div>
   </div>
@@ -345,6 +418,7 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
 
 <!-- ===================== LOG ===================== -->
 <section class="view" id="v-log">
+  <div class="filters" id="logFilters"></div>
   <div class="card"><p class="small" style="margin:0 0 10px" data-t="log.title"></p>
   <table><thead><tr><th>#</th><th data-t="th.time"></th><th data-t="th.node"></th><th data-t="th.source"></th><th data-t="th.diag"></th>
     <th data-t="th.where"></th><th class="n" data-t="th.conf"></th><th class="n" data-t="th.loss"></th><th class="n" data-t="th.perday"></th><th data-t="th.rule"></th></tr></thead>
@@ -363,14 +437,16 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
 <script>
 const $ = id => document.getElementById(id);
 const FAULTS = ["healthy","soiling","partial_shade","series_resistance","bypass_short"];
-const FCOL = {healthy:"#1F7A4D",soiling:"#B7791F",partial_shade:"#5B4B8A",series_resistance:"#C4321C",bypass_short:"#14202B"};
+const FCOL = {healthy:"#1F7A4D",soiling:"#B7791F",partial_shade:"#5B4B8A",series_resistance:"#C4321C",bypass_short:"#14202B",
+  less_light:"#0E7C86",voltage_loss:"#7A2E8E",unclear:"#6E7985",no_baseline:"#9AA3AE"};
+const FLEETL = FAULTS.concat(["less_light","voltage_loss","unclear","no_baseline"]);   // SN-001 (real bench) findings
 const FIX = {soiling:300,partial_shade:500,series_resistance:800,bypass_short:1200};   // placeholder fix costs, editable on the page
 const FEAT = {voc_ratio:"Voc against expected",isc_ratio:"Isc against expected",pmax_ratio:"Pmax against expected",ff_ratio:"Fill factor against expected",
   rs_ratio:"Series-resistance index",rs_norm:"Slope near Voc",step_score:"Mid-curve step",n_peaks:"Number of power peaks",g_est:"Light level",temp_c:"Panel temperature",
   ff:"Fill factor",vmp_voc:"Vmp / Voc",imp_isc:"Imp / Isc",shape_10:"Current at 10% of Voc",shape_20:"Current at 20% of Voc",shape_30:"Current at 30% of Voc",
   shape_40:"Current at 40% of Voc",shape_50:"Current at 50% of Voc",shape_60:"Current at 60% of Voc",shape_70:"Current at 70% of Voc",shape_80:"Current at 80% of Voc",shape_90:"Current at 90% of Voc"};
 let STR = {en:{}}, LANGS = {en:"English"}, LANG = "en";
-let mode = "bench", seed = 1, cur = null, kind = "iv", benchPanel = 1, liveTimer = null, lastLiveId = null, back = "diag";
+let mode = "bench", seed = 1, cur = null, kind = "iv", benchPanel = 1, liveTimer = null, back = "diag";
 let fleet = null, fleetFilter = "all", tab = "diag";
 try { LANG = localStorage.getItem("sn-lang") || "en"; } catch(e) {}
 
@@ -386,6 +462,7 @@ function setLang(l, tell){
   LANG = l; try { localStorage.setItem("sn-lang", l); } catch(e) {}
   [...$("lang").children].forEach(b => b.classList.toggle("on", b.dataset.l === l));
   applyStatic(); setModeText(); if (cur) render(); if (fleet) { drawFleet(); drawAlerts(); } if (tab === "log") loadLog(); loadRecent();
+  if (mode === "live") { renderLive(); drawWhatif(true); }
   if (tell) fetch("/settings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({lang:l})}).catch(()=>{});
 }
 
@@ -409,7 +486,7 @@ function showTab(v){ tab = v;
   [...$("tabs").children].forEach(b => b.classList.toggle("on", b.dataset.v === v));
   document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-"+v));
   if (v==="fleet") loadFleet(); if (v==="model") loadModel(); if (v==="log") loadLog();
-  if (v==="diag" && cur) drawChart(); window.scrollTo(0,0);
+  if (v==="diag") { if (mode==="live") { drawLiveChart(); drawWhatif(true); drawTrend(); } else if (cur) drawChart(); } window.scrollTo(0,0);
 }
 $("tabs").onclick = e => { if (e.target.dataset.v) showTab(e.target.dataset.v); };
 
@@ -445,55 +522,173 @@ $("schem").onclick = e => { const h = e.target.dataset && e.target.dataset.hit; 
 
 /* ---------- modes ---------- */
 function setModeText(){
-  $("modeNote").textContent = mode==="live" ? T("note.live") : mode==="bench" ? T("note.bench") : "";
+  $("modeNote").textContent = mode==="live" ? T("note.live2") : mode==="bench" ? T("note.bench") : "";
   if (mode==="view" && cur) { $("viewTxt").textContent = T("view.site",{x:cur.title||cur.node}); $("viewBack").textContent = T("back."+back); }
 }
 function setMode(m){ mode = m;
   $("mLive").classList.toggle("on", m==="live"); $("mBench").classList.toggle("on", m==="bench");
   $("benchCard").hidden = m!=="bench"; $("viewBar").hidden = m!=="view";
-  clearInterval(liveTimer); clearInterval(stripTimer); $("liveStrip").hidden = true; setModeText();
-  if (m==="live"){ lastLiveId=null; pollLive(); liveTimer=setInterval(pollLive,2000); pollStrip(); stripTimer=setInterval(pollStrip,1000); }
+  $("liveView").hidden = m!=="live"; $("simView").hidden = m==="live";
+  clearInterval(liveTimer); $("liveStrip").hidden = true; setModeText();
+  if (m==="live"){   // real data only: SN-001 over USB, never a simulated sweep
+    $("siteChip").textContent = "SN-001"; $("srcTag").innerHTML = `<span class="realtag">${T("tag.real")}</span>`;
+    tele = bst = curves = null; curvesKey = ""; liveTick = 0; pollLive(); liveTimer = setInterval(pollLive, 1000); }
   if (m==="bench"){ setNode("sim",0,"SN-SIM-01"); benchScan(); }
 }
 $("mLive").onclick = () => setMode("live"); $("mBench").onclick = () => setMode("bench");
 $("viewBack").onclick = () => { if (back==="fleet") { setMode("bench"); showTab("fleet"); } else if (back==="log") { setMode("bench"); showTab("log"); } else setMode("bench"); };
-/* ---------- live sensor strip (raw INA219 readings via /telemetry) ---------- */
-let stripTimer = null;
-async function pollStrip(){
-  const el = $("liveStrip");
-  try {
-    const d = await fetch("/telemetry?node_id=SN-001").then(r=>r.json());
-    const rs = d.readings || [], last = rs[rs.length-1];
-    if (mode!=="live" || !last || d.now - last.ts > 10) { el.hidden = true; return; }
-    el.hidden = false;
-    $("lsTag").innerHTML = last.source==="sim" ? `<span class="simtag">${T("tag.sim")}</span>` : `<span class="realtag">${T("tag.real")}</span>`;
-    $("lsV").textContent = last.v==null ? "-" : nf(last.v,2)+" V";
-    $("lsI").textContent = nf(last.ma,1)+" mA";
-    $("lsP").textContent = last.v==null ? "-" : nf(last.v*last.ma,1)+" mW";
-    const w = rs.filter(r => d.now - r.ts <= 60);
-    if (w.length > 1) {
-      const ys = w.map(r=>r.ma), lo = Math.min(...ys), hi = Math.max(...ys), sp = (hi-lo) || 1;
-      $("lsSvg").innerHTML = `<polyline fill="none" stroke="#1E4E9A" stroke-width="1.8" vector-effect="non-scaling-stroke" points="${
-        w.map(r => ((r.ts-(d.now-60))/60*240).toFixed(1)+","+(36-(r.ma-lo)/sp*32).toFixed(1)).join(" ")}"/>`;
-    } else $("lsSvg").innerHTML = "";
-  } catch(e) { el.hidden = true; } }
+/* ---------- live bench: real readings from SN-001 (telemetry + /bench), never a simulated sweep ---------- */
+let lkind = "iv", tele = null, bst = null, curves = null, curvesKey = "", bevents = [], liveTick = 0, wiKey = "";
+const FIND_LAB = {"finding.ok":"healthy","finding.light":"less_light","finding.voltage":"voltage_loss","finding.unclear":"unclear"};
+const sgn = x => (x==null||isNaN(x)) ? "-" : (x>=0?"+":"") + nf(x,1);
+const FONT = () => ({family:getComputedStyle(document.body).fontFamily, size:12.5, color:"#44505C"});
+
+function drawStrip(d){
+  const el = $("liveStrip"), rs = d.readings || [], last = rs[rs.length-1];
+  if (mode!=="live" || !last || d.now - last.ts > 10) { el.hidden = true; return; }
+  el.hidden = false;
+  $("lsTag").innerHTML = last.source==="sim" ? `<span class="simtag">${T("tag.sim")}</span>` : `<span class="realtag">${T("tag.real")}</span>`;
+  $("lsV").textContent = last.v==null ? "-" : nf(last.v,2)+" V";
+  $("lsI").textContent = nf(last.ma,1)+" mA";
+  $("lsP").textContent = last.v==null ? "-" : nf(last.v*last.ma,1)+" mW";
+  const w = rs.filter(r => d.now - r.ts <= 60);
+  if (w.length > 1) {
+    const ys = w.map(r=>r.ma), lo = Math.min(...ys), hi = Math.max(...ys), sp = (hi-lo) || 1;
+    $("lsSvg").innerHTML = `<polyline fill="none" stroke="#1E4E9A" stroke-width="1.8" vector-effect="non-scaling-stroke" points="${
+      w.map(r => ((r.ts-(d.now-60))/60*240).toFixed(1)+","+(36-(r.ma-lo)/sp*32).toFixed(1)).join(" ")}"/>`;
+  } else $("lsSvg").innerHTML = "";
+}
 async function pollLive(){
-  try { const r = await fetch("/latest").then(r=>r.json());
-    if (!r || !r.id) { setNode("wait"); return; }
-    const age = Date.now()/1000 - r.ts; setNode(r.source==="real" ? (age<30?"online":"stale") : "sim", age, r.node_id);
-    if (r.id !== lastLiveId && mode==="live") { lastLiveId = r.id; show({payload:r.payload, result:r.result, source:r.source, ts:r.ts, node:r.node_id, id:r.id}); loadRecent(); }
-  } catch(e) { setNode("off"); } }
+  liveTick++;
+  try {
+    const q = `node_id=SN-001&kwp=${encodeURIComponent($("kwp").value)}&tariff=${encodeURIComponent($("tariff").value)}`;
+    const [t, st] = await Promise.all([fetch("/telemetry?node_id=SN-001").then(r=>r.json()), fetch("/bench/status?"+q).then(r=>r.json())]);
+    if (mode!=="live") return;
+    tele = t; bst = st;
+    const key = [st.baseline&&st.baseline.ts, st.short&&st.short.ma.toFixed(1), st.open&&st.open.v.toFixed(2)].join("|");
+    if (key !== curvesKey) { curvesKey = key; curves = await fetch("/bench/curves?node_id=SN-001").then(r=>r.json()); }
+    if (liveTick % 3 === 1) bevents = await fetch("/bench/events?node_id=SN-001&limit=60").then(r=>r.json());
+    if (mode==="live") renderLive();
+  } catch(e) { if (mode==="live") setNode("off"); } }
+$("setBase").onclick = async () => {
+  const r = await fetch("/bench/baseline", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({node_id:"SN-001"})}).catch(()=>null);
+  if (r && r.ok) { toast(T("live.base.done")); liveTick = 0; curvesKey = ""; pollLive(); } else toast(T("live.base.need")); };
+$("lkIV").onclick = () => { lkind="iv"; $("lkIV").classList.add("on"); $("lkPV").classList.remove("on"); drawLiveChart(); };
+$("lkPV").onclick = () => { lkind="pv"; $("lkPV").classList.add("on"); $("lkIV").classList.remove("on"); drawLiveChart(); };
+
+function renderLive(){
+  if (!tele || !bst) return;
+  const rs = tele.readings, last = rs[rs.length-1], age = last ? tele.now - last.ts : null;
+  drawStrip(tele);
+  if (!last) setNode("tele_none", 0, "SN-001"); else if (age <= 10) setNode("tele", age, "SN-001"); else setNode("tele_stale", age, "SN-001");
+  // state chip: Short / Open / Load / Dark, from the bridge's 3 s rolling average
+  const m = tele.meta || {}, fresh = last && age <= 10 && m.state, chip = $("lvState");
+  if (!fresh) { chip.className = "chip"; chip.textContent = T("live.st.none"); $("lvStateD").textContent = ""; }
+  else { chip.className = "chip " + (!m.settled ? "" : m.state==="dark" ? "warn" : "ok");
+    chip.textContent = T("live.st."+m.state) + (m.settled ? "" : " · "+T("live.st.settling"));
+    $("lvStateD").textContent = m.state==="load" ? T("live.st.load.d",{r: m.ma_avg>0 ? nf(m.v_avg/(m.ma_avg/1000),0) : "-"}) : T("live.st."+m.state+".d"); }
+  const b = bst.baseline;
+  $("lvBase").textContent = b ? T("live.base.set",{t:clock(b.ts), i:nf(b.isc_ma,2), v:nf(b.voc_v,3)}) : T("live.base.none");
+  // verdict: the rule-based finding, the real % change and the scaled rupees
+  const f = bst.finding, ok = bst.status==="ok";
+  $("lvFinding").textContent = f ? T(f.key) : "";
+  let sk = null;
+  if (ok) sk = f.key==="finding.ok" ? ["ok","sev.ok"] : f.key==="finding.unclear" ? ["warn","sev.check"] : bst.loss_pct>=20 ? ["bad","sev.high"] : ["bad","sev.med"];
+  $("lvSev").hidden = !sk; if (sk) { $("lvSev").className = "chip "+sk[0]; $("lvSev").textContent = T(sk[1]); }
+  const s = bst.short, o = bst.open, ago = p => p ? T("live.ago",{s:Math.round(bst.now-p.ts)}) : "";
+  $("lvIsc").innerHTML = s ? `${nf(s.ma,2)} <small>mA</small>` : "-";
+  $("lvIscD").textContent = [bst.isc_pct!=null ? T("live.vsbase",{x:sgn(bst.isc_pct)}) : "", ago(s)].filter(Boolean).join(" · ");
+  $("lvVoc").innerHTML = o ? `${nf(o.v,3)} <small>V</small>` : "-";
+  $("lvVocD").textContent = [bst.voc_pct!=null ? T("live.vsbase",{x:sgn(bst.voc_pct)}) : "", ago(o)].filter(Boolean).join(" · ");
+  $("lvLoss").textContent = ok ? nf(bst.loss_pct,1)+"%" : "-"; $("lvLossB").style.width = ok ? Math.min(100,bst.loss_pct)+"%" : "0";
+  $("lvMoney").innerHTML = ok ? `₹${nf(bst.money.inr_day,2)} <small>${T("live.perday")}</small>` : "-";
+  $("lvMoneyY").textContent = ok ? T("live.peryear",{x:nf(bst.money.inr_year,0)}) : "";
+  $("lvScaled").textContent = T("live.scaled",{kwp:bst.assumptions.kwp});
+  // engineering details
+  $("lvRaw").textContent = m.raw || "-"; $("lvRate").textContent = nf(tele.rate,1);
+  $("lvAvg").textContent = m.ma_avg==null ? "-" : `${nf(m.v_avg,3)} V, ${nf(m.ma_avg,2)} mA, ±${nf(m.spread,2)} mA`;
+  if (tab==="diag") { drawLiveChart(); drawWhatif(); drawTrend(); }
+}
+
+function drawLiveChart(){
+  if (mode!=="live" || tab!=="diag" || !curves) return;
+  const b = curves.baseline, n = curves.now, P = lkind==="pv", font = FONT();
+  $("lplotMsg").hidden = !!(b || n); $("lplot").hidden = !(b || n);
+  if (!(b || n)) { $("lplotMsg").textContent = T("live.chart.wait"); $("lcLost").textContent = ""; return; }
+  const y = (v,i) => P ? v*i : i, arr = c => ({x:c.points.map(q=>q[0]), y:c.points.map(q=>y(q[0],q[1]))});
+  const traces = [], hv = "%{x:.3f} V, %{y:.3f}<extra>";
+  if (b) { const B = arr(b);
+    if (n) { const N = arr(n), vmax = N.x[N.x.length-1];
+      traces.push({x:B.x, y:B.x.map((v,i) => Math.min(B.y[i], v > vmax ? 0 : interp(N.x, N.y, v))), mode:"lines", line:{width:0}, hoverinfo:"skip"});
+      traces.push({x:B.x, y:B.y, mode:"lines", fill:"tonexty", fillcolor:"rgba(196,50,28,.13)", line:{color:"#8A949E", dash:"dash", width:2}, hovertemplate:hv+T("live.chart.base")+"</extra>"});
+    } else traces.push({x:B.x, y:B.y, mode:"lines", line:{color:"#8A949E", dash:"dash", width:2}, hovertemplate:hv+T("live.chart.base")+"</extra>"}); }
+  if (n) { const N = arr(n); traces.push({x:N.x, y:N.y, mode:"lines", line:{color:"#1E4E9A", width:2.6}, hovertemplate:hv+T("live.chart.now")+"</extra>"}); }
+  // real points: solid dots now, hollow dots for the baseline
+  if (b) traces.push({x:[0,b.voc_v], y:[y(0,b.isc_ma),0], mode:"markers", marker:{size:10, color:"#fff", line:{color:"#8A949E", width:2.2}}, hovertemplate:hv+T("live.chart.base")+"</extra>"});
+  const sx = [], sy = [];
+  if (n) { sx.push(0, n.voc_v); sy.push(y(0,n.isc_ma), 0); }
+  if (curves.load) { sx.push(curves.load.v); sy.push(y(curves.load.v, curves.load.ma)); }
+  if (sx.length) traces.push({x:sx, y:sy, mode:"markers", marker:{size:11, color:"#1E4E9A", line:{color:"#fff", width:2}}, hovertemplate:hv+T("live.chart.now")+"</extra>"});
+  if (P) {   // max-power markers, from the model curves
+    if (b) traces.push({x:[b.vmp_v], y:[b.pmax_mw], mode:"markers", marker:{symbol:"diamond", size:10, color:"#fff", line:{color:"#8A949E", width:2}}, hovertemplate:nf(b.pmax_mw,3)+" mW<extra></extra>"});
+    if (n) traces.push({x:[n.vmp_v], y:[n.pmax_mw], mode:"markers", marker:{symbol:"diamond", size:11, color:"#1E4E9A", line:{color:"#fff", width:2}}, hovertemplate:nf(n.pmax_mw,3)+" mW<extra></extra>"}); }
+  const ax = t => ({title:{text:t, font}, gridcolor:"#ECEFF2", zeroline:false, linecolor:"#C8CED6", rangemode:"tozero", tickfont:font});
+  Plotly.react("lplot", traces, {margin:{l:62,r:14,t:10,b:46}, paper_bgcolor:"#fff", plot_bgcolor:"#fff", font, showlegend:false,
+    xaxis:ax(T("ax.v")), yaxis:ax(P?T("ax.p"):T("ax.i")), hoverlabel:{font}}, {displayModeBar:false, responsive:true});
+  $("lcLost").textContent = curves.loss_curve_pct!=null ? T("live.chart.lost",{x:nf(curves.loss_curve_pct,1)}) : (n && !b ? T("live.chart.nobase") : "");
+}
+
+function drawWhatif(force){
+  const w = curves && curves.whatif;
+  $("wiNone").hidden = !!w; $("wiGrid").hidden = !w;
+  if (!w || mode!=="live" || tab!=="diag") { if (!w) wiKey = ""; return; }
+  $("wiNote").textContent = T("live.wi.note",{x:w.loss_pct}); $("wiUnreach").hidden = w.shade_reached;
+  const key = w.loss_pct + "|" + LANG; if (!force && key === wiKey) return; wiKey = key;
+  const font = {...FONT(), size:11.5}, h = w.healthy;
+  [["dust","#B7791F"],["shade","#5B4B8A"],["joint","#C4321C"]].forEach(([k,col]) => {
+    Plotly.react("wi_"+k, [
+      {x:h.map(q=>q[0]), y:h.map(q=>q[1]), mode:"lines", line:{color:"#8A949E", dash:"dash", width:1.6}, hoverinfo:"skip"},
+      {x:w[k].map(q=>q[0]), y:w[k].map(q=>q[1]), mode:"lines", line:{color:col, width:2.4}, hovertemplate:"%{x:.2f}, %{y:.2f}<extra></extra>"}],
+      {margin:{l:44,r:8,t:6,b:38}, paper_bgcolor:"#fff", plot_bgcolor:"#fff", font, showlegend:false,
+       xaxis:{title:{text:"V ÷ Voc", font}, range:[0,1.02], gridcolor:"#ECEFF2", zeroline:false, tickfont:font},
+       yaxis:{title:{text:"I ÷ Isc", font}, range:[0,1.08], gridcolor:"#ECEFF2", zeroline:false, tickfont:font}},
+      {displayModeBar:false, responsive:true}); });
+}
+
+function drawTrend(){
+  if (mode!=="live" || tab!=="diag" || !tele) return;
+  const rs = tele.readings.filter(r => r.source==="real" && tele.now - r.ts <= 300), font = FONT();
+  const X = rs.map(r => new Date(r.ts*1000)), t0 = new Date((tele.now-300)*1000), t1 = new Date(tele.now*1000);
+  const line = (y, ya, col) => ({x:X, y, xaxis:"x", yaxis:ya, mode:"lines", line:{color:col, width:1.8}, connectgaps:false, hovertemplate:"%{y:.3f}<extra></extra>"});
+  const shapes = [], ann = [];
+  (bevents||[]).filter(e => tele.now - e.ts <= 300).forEach(e => {
+    const base = e.kind==="baseline", lab = FIND_LAB[e.data.key];
+    const col = base ? "#E8A100" : (lab==="healthy" ? "#1F7A4D" : "#C4321C"), t = new Date(e.ts*1000);
+    shapes.push({type:"line", xref:"x", yref:"paper", x0:t, x1:t, y0:0, y1:1, line:{color:col, width:1.6, dash:base?"dash":"solid"}});
+    ann.push({x:t, y:1, xref:"x", yref:"paper", xanchor:"left", yanchor:"top", showarrow:false, text:base ? T("live.trend.base") : T("f."+lab), font:{...font, size:11, color:col}, bgcolor:"rgba(255,255,255,.8)"}); });
+  const dom = (a,b) => ({domain:[a,b], gridcolor:"#ECEFF2", zeroline:false, tickfont:font, titlefont:font});
+  Plotly.react("trend", [line(rs.map(r=>r.ma), "y", "#1E4E9A"), line(rs.map(r=>r.v), "y2", "#B7791F"), line(rs.map(r=>r.v==null?null:r.v*r.ma), "y3", "#5B4B8A")],
+    {margin:{l:62,r:14,t:8,b:34}, paper_bgcolor:"#fff", plot_bgcolor:"#fff", font, showlegend:false, shapes, annotations:ann,
+     xaxis:{range:[t0,t1], tickformat:"%H:%M:%S", gridcolor:"#ECEFF2", anchor:"y3", tickfont:font},
+     yaxis:{...dom(0.70,1), title:{text:T("ax.i"), font}}, yaxis2:{...dom(0.37,0.63), title:{text:T("ax.v"), font}}, yaxis3:{...dom(0,0.30), title:{text:T("ax.p"), font}},
+     hoverlabel:{font}}, {displayModeBar:false, responsive:true});
+}
 function setNode(s, age, node){ setNode.last = [s,age,node]; const d=$("nodeDot"); d.className="dot";
   if (s==="online"){ d.classList.add("on"); $("nodeTxt").textContent=T("node.online",{node, s:age.toFixed(0)}); }
   else if (s==="stale") $("nodeTxt").textContent=T("node.stale",{node, m:(age/60).toFixed(0)});
   else if (s==="sim"){ d.classList.add("sim"); $("nodeTxt").textContent=T("node.sim",{node:node||"SN-SIM-01"}); }
+  else if (s==="tele"){ d.classList.add("on"); $("nodeTxt").textContent=T("node.tele",{node, s:Math.round(age)}); }
+  else if (s==="tele_stale"){ d.classList.add("off"); $("nodeTxt").textContent=T("node.tele.stale",{node, s:Math.round(age)}); }
+  else if (s==="tele_none") $("nodeTxt").textContent=T("node.tele.none",{node});
   else if (s==="wait") $("nodeTxt").textContent=T("node.wait");
   else { d.classList.add("off"); $("nodeTxt").textContent=T("node.off"); } }
 async function openScan(id, from){ const r = await fetch("/sweep/"+id).then(r=>r.json()); back = from||"diag"; showTab("diag"); setMode("view");
   show({payload:r.payload, result:r.result, source:r.source, ts:r.ts, node:r.node_id, id:r.id, title:r.node_id+" #"+r.id}); setModeText(); }
 async function openSite(site){ const r = await fetch(`/fleet/site/${site}?tariff=${$("tariff").value}`).then(r=>r.json()); back = "fleet"; showTab("diag"); setMode("view");
   show({payload:r.payload, result:r.result, source:"sim", ts:r.ts, node:site, title:site+", "+r.locality}); setModeText(); }
-function openRow(r){ closeDrawer(); if (r.live) openScan(r.sweep_id, "fleet"); else openSite(r.site); }
+function openRow(r){ closeDrawer(); if (r.bench) { showTab("diag"); setMode("live"); } else if (r.live) openScan(r.sweep_id, "fleet"); else openSite(r.site); }
+const whereOf = r => r.bench ? T(r.finding.key) : (r.label==="healthy" ? "" : say(r.location,""));
+const agoRow = r => r.bench && r.seconds_ago!=null && r.seconds_ago < 60 ? T("ago.s",{n:r.seconds_ago}) : ago(r.minutes_ago);
 
 /* ---------- diagnosis rendering ---------- */
 function show(c){ cur = c; render(); }
@@ -650,25 +845,28 @@ $("strip").onclick = e => { if (e.target.dataset.id) openScan(e.target.dataset.i
 
 /* ---------- fleet + alerts ---------- */
 async function loadFleet(quiet){
-  try { fleet = await fetch(`/fleet?tariff=${$("tariff").value}`).then(r=>r.json()); } catch(e) { return; }
+  try { fleet = await fetch(`/fleet?tariff=${$("tariff").value}&kwp=${$("kwp").value}`).then(r=>r.json()); } catch(e) { return; }
   drawAlerts(); if (tab==="fleet" || !quiet) drawFleet();
 }
 function drawFleet(){
   if (!fleet || tab!=="fleet") return; const d = fleet;
   $("qT").textContent=d.total; $("qH").textContent=d.healthy; $("qA").textContent=d.attention; $("qR").textContent="₹"+nf(d.inr_day_at_risk,0);
   $("filters").innerHTML = `<button data-f="all" class="${fleetFilter==="all"?"on":""}">${esc(T("fleet.all"))} ${d.total}</button>` +
-    FAULTS.filter(k=>d.distribution[k]).map(k => `<button data-f="${k}" class="${fleetFilter===k?"on":""}">${esc(T("f."+k))} ${d.distribution[k]}</button>`).join("");
+    FLEETL.filter(k=>d.distribution[k]).map(k => `<button data-f="${k}" class="${fleetFilter===k?"on":""}">${esc(T("f."+k))} ${d.distribution[k]}</button>`).join("");
   const rows = d.rows.filter(r => fleetFilter==="all" || r.label===fleetFilter);
   $("qRows").innerHTML = rows.map(r => { const [sc] = sevOf(r);
-    const tag = r.live ? (r.source==="real" ? '<span class="realtag">Live</span>' : '<span class="simtag">Live</span>') : "";
-    return `<tr class="click" data-site="${r.site}"><td><b>${r.site}</b> ${tag}</td><td>${esc(r.locality)}</td><td><span class="chip ${sc}">${esc(T("f."+r.label))}</span></td>
-      <td>${r.label==="healthy"?"":esc(say(r.location,""))}</td><td class="n">${nf(r.loss_pct,1)}%</td><td class="n"><b>${nf(r.inr_day,1)}</b></td><td class="nw">${esc(ago(r.minutes_ago))}</td><td>${esc(r.ticket||"")}</td></tr>`; }).join("");
+    const tag = r.live ? (r.source==="real" ? `<span class="realtag nw">Live</span> <span class="realtag nw">${esc(T("log.f.real"))}</span>` : '<span class="simtag">Live</span>') : "";
+    const pw = r.bench && r.power_mw!=null ? `<div class="small">${esc(T("fleet.live.now",{x:nf(r.power_mw,2)}))}</div>` : "";
+    return `<tr class="click" data-site="${r.site}"><td><b>${r.site}</b> ${tag}${pw}</td><td>${esc(r.locality)}</td><td><span class="chip ${sc}">${esc(T("f."+r.label))}</span></td>
+      <td${r.bench?' class="small" style="min-width:230px"':""}>${esc(whereOf(r))}</td><td class="n">${nf(r.loss_pct,1)}%</td><td class="n"><b>${nf(r.inr_day,1)}</b></td><td class="nw">${esc(agoRow(r))}</td><td>${esc(r.ticket||"")}</td></tr>`; }).join("");
   const font = {family:getComputedStyle(document.body).fontFamily, size:12, color:"#44505C"};
-  const traces = FAULTS.filter(k => rows.some(r=>r.label===k)).map(k => { const rs = rows.filter(r=>r.label===k);
+  const traces = FLEETL.filter(k => rows.some(r=>r.label===k)).map(k => { const rs = rows.filter(r=>r.label===k);
     return {x:rs.map(r=>r.lon), y:rs.map(r=>r.lat), customdata:rs.map(r=>r.site), name:T("f."+k), mode:k==="healthy"?"markers":"markers+text",
       text:rs.map(r=>r.site), textposition:"top center", textfont:{...font, size:11},
       hovertext:rs.map(r=>`${r.site}, ${r.locality}<br>${T("f."+r.label)}<br>₹${nf(r.inr_day,1)} ${T("fig.perday")}`), hoverinfo:"text",
       marker:{color:FCOL[k], size:rs.map(r=>k==="healthy"?9:11+Math.sqrt(r.inr_day)*2.6), opacity:k==="healthy"?.55:.9, line:{color:"#fff", width:1.5}}}; });
+  const bn = rows.filter(r => r.bench);   // highlight the real node with a ring
+  if (bn.length) traces.push({x:bn.map(r=>r.lon), y:bn.map(r=>r.lat), mode:"markers", hoverinfo:"skip", showlegend:false, marker:{size:30, color:"rgba(0,0,0,0)", line:{color:"#E8A100", width:3}}});
   Plotly.react("map", traces, {margin:{l:6,r:6,t:6,b:6}, paper_bgcolor:"#fff", plot_bgcolor:"#F7F8FA", font, hoverlabel:{font},
     xaxis:{visible:false}, yaxis:{visible:false, scaleanchor:"x", scaleratio:1.03},
     legend:{orientation:"h", y:-0.02, font}, showlegend:true}, {displayModeBar:false, responsive:true});
@@ -678,11 +876,11 @@ function drawFleet(){
 $("filters").onclick = e => { if (e.target.dataset.f) { fleetFilter = e.target.dataset.f; drawFleet(); } };
 $("qRows").onclick = e => { const tr = e.target.closest("tr"); if (tr) { const r = fleet.rows.find(q=>q.site===tr.dataset.site); if (r) openRow(r); } };
 function drawAlerts(){
-  if (!fleet) return; const a = fleet.rows.filter(r => r.label!=="healthy" || r.status!=="ok");
+  if (!fleet) return; const a = fleet.rows.filter(r => (r.label!=="healthy" || r.status!=="ok") && r.label!=="no_baseline");
   $("bellN").hidden = !a.length; $("bellN").textContent = a.length;
   $("alertList").innerHTML = a.length ? a.map(r => { const [sc, sk] = sevOf(r);
     return `<button class="al" data-site="${r.site}"><div class="t"><span>${esc(T("f."+r.label))}</span><span class="num">₹${nf(r.inr_day,1)} ${esc(T("fig.perday"))}</span></div>
-      <div class="w">${esc(say(r.location,""))}</div><div class="m">${r.site}, ${esc(r.locality)} · ${esc(ago(r.minutes_ago))} · <span class="chip ${sc}">${esc(T(sk))}</span></div></button>`; }).join("")
+      <div class="w">${esc(whereOf(r))}</div><div class="m">${r.site}, ${esc(r.locality)} · ${r.bench ? `<span class="realtag">${esc(T("tag.real"))}</span> · ` : ""}${esc(agoRow(r))} · <span class="chip ${sc}">${esc(T(sk))}</span></div></button>`; }).join("")
     : `<p class="small">${esc(T("alerts.empty"))}</p>`;
 }
 const closeDrawer = () => document.body.classList.remove("drawer");
@@ -706,16 +904,33 @@ async function loadModel(){
 }
 
 /* ---------- scan log ---------- */
+let logFilter = "all";
+function drawLogFilters(){
+  $("logFilters").innerHTML = [["all","log.f.all"],["real","log.f.real"],["sim","log.f.sim"]].map(([k,t]) =>
+    `<button data-f="${k}" class="${logFilter===k?"on":""}">${esc(T(t))}</button>`).join("");
+}
+$("logFilters").onclick = e => { if (e.target.dataset.f) { logFilter = e.target.dataset.f; loadLog(); } };
 async function loadLog(){
-  const h = await fetch("/history?limit=100").then(r=>r.json());
-  $("logRows").innerHTML = h.map(r => { const [sc] = sevOf(r);
-    return `<tr class="click" data-id="${r.id}"><td>${r.id}</td><td>${clock(r.ts)}</td><td>${esc(r.node_id)}</td>
-    <td>${r.source==="sim"?`<span class="simtag">${esc(T("tag.sim"))}</span>`:`<span class="realtag">${esc(T("tag.real"))}</span>`}</td>
+  drawLogFilters();
+  const [h, ev] = await Promise.all([fetch("/history?limit=100").then(r=>r.json()), fetch("/bench/events?limit=100").then(r=>r.json()).catch(()=>[])]);
+  const all = [...h.map(r => ({ts:r.ts, real:r.source!=="sim", r})), ...ev.map(e => ({ts:e.ts, real:true, e}))]
+    .filter(x => logFilter==="all" || (logFilter==="real" ? x.real : !x.real)).sort((a,b) => b.ts-a.ts).slice(0,150);
+  const tag = real => real ? `<span class="realtag">${esc(T("tag.real"))}</span>` : `<span class="simtag">${esc(T("tag.sim"))}</span>`;
+  $("logRows").innerHTML = all.map(x => {
+    if (x.e) { const e = x.e, d = e.data, base = e.kind==="baseline", lab = FIND_LAB[d.key] || "unclear";
+      const [sc] = base ? ["warn"] : sevOf({status:"ok", label:lab, loss_pct:d.loss_pct});
+      const det = base ? T("log.base.d",{i:nf(d.isc_ma,2), v:nf(d.voc_v,3)}) : `Isc ${sgn(d.isc_pct)}%, Voc ${sgn(d.voc_pct)}%`;
+      return `<tr class="click" data-ev="1"><td>B${e.id}</td><td>${clock(e.ts)}</td><td>${esc(e.node_id)}</td><td>${tag(true)}</td>
+        <td><span class="chip ${sc}">${esc(base ? T("log.baseline") : T("f."+lab))}</span></td><td>${esc(det)}</td><td class="n">-</td>
+        <td class="n">${base ? "-" : nf(d.loss_pct,1)+"%"}</td><td class="n">${base ? "-" : nf(d.inr_day,1)}</td><td>-</td></tr>`; }
+    const r = x.r, [sc] = sevOf(r);
+    return `<tr class="click" data-id="${r.id}"><td>${r.id}</td><td>${clock(r.ts)}</td><td>${esc(r.node_id)}</td><td>${tag(r.source!=="sim")}</td>
     <td><span class="chip ${sc}">${esc(T("f."+r.label))}</span></td><td>${r.label==="healthy"?"":esc(say(r.location,""))}</td><td class="n">${pc(r.confidence)}</td>
     <td class="n">${nf(r.loss_pct,1)}%</td><td class="n">${nf(r.inr_day,1)}</td><td>${esc(T("f."+r.rule_label))}</td></tr>`; }).join("")
     || `<tr><td colspan="10" class="small">${esc(T("log.empty"))}</td></tr>`;
 }
-$("logRows").onclick = e => { const tr = e.target.closest("tr"); if (tr && tr.dataset.id) openScan(tr.dataset.id, "log"); };
+$("logRows").onclick = e => { const tr = e.target.closest("tr"); if (!tr) return;
+  if (tr.dataset.ev) { showTab("diag"); setMode("live"); } else if (tr.dataset.id) openScan(tr.dataset.id, "log"); };
 
 /* ---------- start ---------- */
 (async function(){

@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from sn import alerts, config as C, engine, i18n
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(ROOT, "data", "suryanidaan.db")
+DB_PATH = os.environ.get("SN_DB") or os.path.join(ROOT, "data", "suryanidaan.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 _lock = threading.Lock()
 
@@ -29,6 +29,8 @@ def db():
         payload TEXT, result TEXT)""")
     con.execute("""CREATE TABLE IF NOT EXISTS alerts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, sweep_id INTEGER, text TEXT, sent INTEGER)""")
+    con.execute("""CREATE TABLE IF NOT EXISTS bench_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, node_id TEXT, kind TEXT, data TEXT)""")
     con.execute("""CREATE TABLE IF NOT EXISTS tickets (
         id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, site TEXT, label TEXT, sweep_id INTEGER, status TEXT)""")
     return con
@@ -190,22 +192,33 @@ def health():
 # ---------------------------------------------------------------- live telemetry (in memory)
 import collections
 
+from sn import bench
+
 
 class Telemetry(BaseModel):
     node_id: str = "SN-001"
     source: str = Field("real", description='"real" from the sensor, "sim" if simulated')
     v: Optional[float] = Field(None, description="Bus voltage in V (null if the node does not report it)")
     ma: float = Field(..., description="Current in mA")
+    raw: Optional[str] = Field(None, description="The raw serial line this reading came from")
+    state: Optional[str] = Field(None, description="short / open / load / dark, from the 3 s rolling average")
+    settled: bool = Field(False, description="True once the state has been stable for 2 s")
+    v_avg: Optional[float] = None
+    ma_avg: Optional[float] = None
+    spread: Optional[float] = Field(None, description="Std-dev of the current over the 3 s window, mA")
 
 
-_telemetry = {}   # node_id -> deque of the last 300 readings
+_telemetry = {}       # node_id -> deque of the last 900 readings (15 min at 1 Hz)
+_tele_meta = {}       # node_id -> latest raw line / state / rolling average
 
 
 @app.post("/telemetry")
 def post_telemetry(t: Telemetry):
     with _lock:
-        _telemetry.setdefault(t.node_id, collections.deque(maxlen=300)).append(
+        _telemetry.setdefault(t.node_id, collections.deque(maxlen=900)).append(
             dict(ts=time.time(), source=t.source, v=t.v, ma=t.ma))
+        _tele_meta[t.node_id] = dict(raw=t.raw, state=t.state, settled=t.settled, v_avg=t.v_avg,
+                                     ma_avg=t.ma_avg, spread=t.spread, ts=time.time())
     return dict(ok=True)
 
 
@@ -213,7 +226,167 @@ def post_telemetry(t: Telemetry):
 def get_telemetry(node_id: str = "SN-001"):
     with _lock:
         rows = list(_telemetry.get(node_id, ()))
-    return dict(node_id=node_id, now=time.time(), readings=rows)
+        meta = dict(_tele_meta.get(node_id, {}))
+    now = time.time()
+    recent = [r["ts"] for r in rows if now - r["ts"] <= 10]
+    rate = (len(recent) - 1) / (recent[-1] - recent[0]) if len(recent) > 2 and recent[-1] > recent[0] else 0.0
+    return dict(node_id=node_id, now=now, readings=rows, meta=meta, rate=round(rate, 2))
+
+
+# ---------------------------------------------------------------- real bench (Isc / Voc against a baseline)
+_bench = {}           # node_id -> {"short": pt, "open": pt, "load": pt, "dark": pt, "last_state", "last_ts", "fresh": set()}
+STALE_S = 600         # a point older than this cannot be used to set a baseline
+
+
+class BenchPoint(BaseModel):
+    node_id: str = "SN-001"
+    state: str = Field(..., description="short / open / load / dark")
+    v: float
+    ma: float
+    spread: float = 0.0
+    n: int = 0
+
+
+class BaselineReq(BaseModel):
+    node_id: str = "SN-001"
+
+
+def _event(node, kind, data, ts=None):
+    with _lock:
+        con = db()
+        cur = con.execute("INSERT INTO bench_events (ts, node_id, kind, data) VALUES (?,?,?,?)",
+                          (ts or time.time(), node, kind, json.dumps(data)))
+        con.commit()
+        eid = cur.lastrowid
+        con.close()
+    return eid
+
+
+def _baseline(node):
+    rows = _rows("SELECT ts, data FROM bench_events WHERE node_id = ? AND kind = 'baseline' "
+                 "ORDER BY id DESC LIMIT 1", (node,))
+    if not rows:
+        return None
+    return dict(ts=rows[0][0], **json.loads(rows[0][1]))
+
+
+def _bench_eval(node, kwp=C.DEFAULT_KWP, yld=C.DEFAULT_YIELD, tariff=C.DEFAULT_TARIFF):
+    """Latest settled points, baseline, % changes, approximate loss and the rule-based finding."""
+    st = _bench.get(node, {})
+    sh, op, base = st.get("short"), st.get("open"), _baseline(node)
+    out = dict(node_id=node, now=time.time(), source="real", approx=True, short=sh, open=op,
+               load=st.get("load"), dark=st.get("dark"), baseline=base, isc_pct=None, voc_pct=None,
+               loss_pct=None, money=None, finding=None, status="pending")
+    out["assumptions"] = dict(kwp=kwp, yield_kwh_per_kwp_day=yld, tariff=tariff)
+    if not base:
+        out["finding"] = dict(key="finding.nobase")
+        return out
+    if not sh or not op:
+        out["finding"] = dict(key="finding.needpts")
+        return out
+    out["isc_pct"] = bench.pct_change(sh["ma"], base["isc_ma"])
+    out["voc_pct"] = bench.pct_change(op["v"], base["voc_v"])
+    loss = bench.approx_loss(sh["ma"], op["v"], base["isc_ma"], base["voc_v"])
+    out["loss_pct"] = round(loss * 100.0, 1)
+    out["money"] = engine.money(loss, kwp, yld, tariff)
+    out["finding"] = dict(key=bench.finding(out["isc_pct"], out["voc_pct"]))
+    out["status"] = "ok"
+    return out
+
+
+@app.post("/bench/point")
+def bench_point(p: BenchPoint):
+    """A settled reading from serial_bridge.py (state stable for 2 s). Keeps the latest per state."""
+    if p.state not in ("short", "open", "load", "dark"):
+        raise HTTPException(422, "state must be short, open, load or dark")
+    now = time.time()
+    with _lock:
+        st = _bench.setdefault(p.node_id, dict(fresh=set(), last_state=None, last_ts=0.0))
+        new_instance = st["last_state"] != p.state or now - st["last_ts"] > 5
+        st[p.state] = dict(v=p.v, ma=p.ma, spread=p.spread, n=p.n, ts=now)
+        st["last_state"], st["last_ts"] = p.state, now
+        if new_instance and p.state in ("short", "open"):
+            st["fresh"].add(p.state)
+        complete = {"short", "open"} <= st["fresh"]
+    if complete and _baseline(p.node_id):
+        ev = _bench_eval(p.node_id)
+        if ev["status"] == "ok":              # one finding per completed measurement round
+            with _lock:
+                _bench[p.node_id]["fresh"].clear()
+            m = ev["money"]
+            _event(p.node_id, "finding", dict(key=ev["finding"]["key"], isc_ma=ev["short"]["ma"],
+                   voc_v=ev["open"]["v"], isc_pct=ev["isc_pct"], voc_pct=ev["voc_pct"],
+                   loss_pct=ev["loss_pct"], inr_day=m["inr_day"]))
+    return dict(ok=True)
+
+
+@app.post("/bench/baseline")
+def bench_baseline(r: BaselineReq):
+    """Store the latest settled Isc (jumper on) and Voc (jumper off) as the healthy baseline."""
+    st = _bench.get(r.node_id, {})
+    now = time.time()
+    sh, op = st.get("short"), st.get("open")
+    if not sh or not op or now - sh["ts"] > STALE_S or now - op["ts"] > STALE_S:
+        raise HTTPException(409, "need_points")
+    data = dict(isc_ma=sh["ma"], voc_v=op["v"])
+    eid = _event(r.node_id, "baseline", data, now)
+    with _lock:
+        st["fresh"].clear()
+    return dict(ok=True, id=eid, ts=now, **data)
+
+
+@app.get("/bench/status")
+def bench_status(node_id: str = "SN-001", kwp: float = C.DEFAULT_KWP,
+                 yield_kwh_per_kwp_day: float = C.DEFAULT_YIELD, tariff: float = C.DEFAULT_TARIFF):
+    """Latest values, baseline, % change and an APPROXIMATE loss, from real readings only."""
+    return _bench_eval(node_id, kwp, yield_kwh_per_kwp_day, tariff)
+
+
+@app.get("/bench/events")
+def bench_events(node_id: Optional[str] = None, limit: int = 100):
+    sql = "SELECT id, ts, node_id, kind, data FROM bench_events"
+    args = ()
+    if node_id:
+        sql, args = sql + " WHERE node_id = ?", (node_id,)
+    rows = _rows(sql + " ORDER BY id DESC LIMIT ?", args + (limit,))
+    return [dict(id=i, ts=ts, node_id=n, kind=k, source="real", data=json.loads(d)) for i, ts, n, k, d in rows]
+
+
+@app.get("/bench/curves")
+def bench_curves(node_id: str = "SN-001"):
+    """Physics-model curves (pvlib single diode) through the measured Isc and Voc. Models, not measurements."""
+    ev = _bench_eval(node_id)
+    base, sh, op = ev["baseline"], ev["short"], ev["open"]
+    out = dict(baseline=None, now=None, loss_curve_pct=None, whatif=None,
+               load=ev["load"] and dict(v=ev["load"]["v"], ma=ev["load"]["ma"]))
+    if base:
+        out["baseline"] = bench.anchored_curve(base["isc_ma"], base["voc_v"])
+    if sh and op and op["v"] > 0.05 and sh["ma"] > 0:
+        out["now"] = bench.anchored_curve(sh["ma"], op["v"])
+    if out["baseline"] and out["now"]:
+        loss = 1.0 - out["now"]["pmax_mw"] / out["baseline"]["pmax_mw"]
+        out["loss_curve_pct"] = round(max(0.0, loss) * 100.0, 1)
+        if out["loss_curve_pct"] >= 2.0:
+            out["whatif"] = bench.whatif(int(round(min(out["loss_curve_pct"], 90))))
+    return out
+
+
+def _bench_row(kwp, yld, tariff):
+    """Fleet row for the real bench node SN-001, from telemetry + bench state (never from a simulated sweep)."""
+    ev = _bench_eval("SN-001", kwp, yld, tariff)
+    rows = _telemetry.get("SN-001")
+    last = rows[-1] if rows else None
+    key = ev["finding"]["key"]
+    label = {"finding.ok": "healthy", "finding.light": "less_light", "finding.voltage": "voltage_loss",
+             "finding.unclear": "unclear"}.get(key, "no_baseline")
+    m = ev["money"] or dict(inr_day=0.0, inr_year=0)
+    return dict(site="SN-001", locality=BENCH_SITE[0], lat=BENCH_SITE[1], lon=BENCH_SITE[2], kwp=kwp, source="real",
+                label=label, headline="", status="ok" if ev["status"] == "ok" else "pending", confidence=1.0,
+                loss_pct=ev["loss_pct"] or 0.0, inr_day=m["inr_day"], inr_year=m["inr_year"], location=None,
+                verdict=None, minutes_ago=int((time.time() - last["ts"]) / 60) if last else 0, ticket="",
+                live=True, bench=True, finding=ev["finding"],
+                power_mw=(last["v"] * last["ma"]) if last and last["v"] is not None else None,
+                seconds_ago=int(time.time() - last["ts"]) if last else None)
 
 
 # ---------------------------------------------------------------- web console
@@ -331,13 +504,17 @@ def _last_ticket(site):
 
 
 @app.get("/fleet")
-def fleet(yield_kwh_per_kwp_day: float = C.DEFAULT_YIELD, tariff: float = C.DEFAULT_TARIFF):
+def fleet(yield_kwh_per_kwp_day: float = C.DEFAULT_YIELD, tariff: float = C.DEFAULT_TARIFF,
+          kwp: float = C.DEFAULT_KWP):
+    kwp_arg = kwp
     rows = []
     for row, _, _ in _fleet(1.0, yield_kwh_per_kwp_day, tariff).values():
         row = dict(row)
         row["ticket"] = _last_ticket(row["site"]) or row["ticket"]
         rows.append(row)
-    for node in ("SN-001", "SN-SIM-01"):
+    if _telemetry.get("SN-001"):
+        rows.append(_bench_row(1.0 * kwp_arg, yield_kwh_per_kwp_day, tariff))
+    for node in (("SN-SIM-01",) if _telemetry.get("SN-001") else ("SN-001", "SN-SIM-01")):
         lat = latest(node)
         if lat:
             res = lat["result"]
@@ -346,12 +523,12 @@ def fleet(yield_kwh_per_kwp_day: float = C.DEFAULT_YIELD, tariff: float = C.DEFA
             rows.append(_row(node, BENCH_SITE[0], BENCH_SITE[1], BENCH_SITE[2] + (0.012 if node == "SN-SIM-01" else 0),
                              res["assumptions"]["kwp"], lat["source"], res, int((time.time() - lat["ts"]) / 60),
                              _last_ticket(node), live=True, sweep_id=lat["id"]))
-    rows.sort(key=lambda r: -r["inr_day"])
+    rows.sort(key=lambda r: (not r.get("bench"), -r["inr_day"]))
     dist = {}
     for r in rows:
         dist[r["label"]] = dist.get(r["label"], 0) + 1
     return dict(rows=rows, total=len(rows), healthy=dist.get("healthy", 0),
-                attention=len(rows) - dist.get("healthy", 0),
+                attention=len(rows) - dist.get("healthy", 0) - dist.get("no_baseline", 0),
                 inr_day_at_risk=round(sum(r["inr_day"] for r in rows), 1), distribution=dist)
 
 

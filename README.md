@@ -35,6 +35,22 @@ Telegram alerts (optional): message @BotFather, `/newbot`, copy the token, send 
 | `virtual_node.py` | Posts SIMULATED sweeps exactly like the ESP32 will |
 | `serial_bridge.py` | Reads the ESP32's INA219 Serial printouts over USB and POSTs them to `/telemetry` (shown as the "Live sensor" strip in Live node mode). Close the Arduino Serial Monitor first. |
 
+## Real bench (one panel, INA219, USB serial)
+
+No firmware change: `serial_bridge.py` only reads what the ESP32 already prints. Wiring: a jumper from INA219 VIN- to
+panel minus = short circuit (V ~ 0, I = Isc); jumper removed = open circuit (I ~ 0, V = Voc).
+
+1. Torch fixed, clean panel: jumper on (2 s), jumper off (2 s), press **Set baseline** in Live node mode.
+2. Add the fault (dust, shade, loose joint).
+3. Jumper on, jumper off again. The console shows the finding, the % change and the approximate loss.
+
+Findings are rules on the change against the baseline (Isc down > 8% with Voc within 5%: less light; Voc down > 15%:
+voltage loss). Loss = 1 - (Isc x Voc) / (baseline Isc x baseline Voc), an approximation, scaled to a kWp home for the rupees.
+Curves are pvlib single-diode models through the measured Isc and Voc (tag: Physics model). Real-bench accuracy is not
+measured yet.
+
+API: `POST /telemetry`, `POST /bench/point`, `POST /bench/baseline`, `GET /bench/status`, `GET /bench/curves`, `GET /bench/events`.
+
 ## JSON contract for the ESP32 (teammate)
 
 POST `http://<laptop-ip>:8000/sweeps` with `Content-Type: application/json`:
