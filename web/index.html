@@ -86,6 +86,12 @@ h2{font-size:15px;font-weight:700;margin:0 0 10px}
 .cat{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:5px;border:1px solid var(--line)}
 .cat.critical{background:var(--bad-soft);color:var(--bad);border-color:#F0C6BD}.cat.high{background:var(--warn-soft);color:var(--warn);border-color:#ECD49A}.cat.medium{background:#EAF0F9;color:#1E4E9A;border-color:#CBD9EF}.cat.low{background:#F2F4F7;color:#6E7985}
 @media (max-width:900px){.fgrid{grid-template-columns:1fr 1fr}.scns,.qwrap{grid-template-columns:1fr}}
+.lvl{font-size:11px;font-weight:800;padding:2px 8px;border-radius:5px;border:1px solid #14202B;color:#14202B;white-space:nowrap}
+.lvl.SUSPECTED{border-color:#A66A00;color:#A66A00}.lvl.CONFIRMED{border-color:#1F7A4D;color:#1F7A4D}.lvl.POSSIBLE{border-color:#6E7985;color:#6E7985}
+.stg{font-size:12px;font-weight:700;padding:2px 8px;border-radius:5px;background:#EEF1F6;color:#44505C;white-space:nowrap}.stg.resolved{background:var(--ok-soft);color:var(--ok)}.stg.reopened{background:var(--bad-soft);color:var(--bad)}
+.draft{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#FAFBFD;margin-top:8px}.draft pre{white-space:pre-wrap;font:13px/1.45 var(--font);margin:6px 0}
+.cform{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 10px;margin-top:8px}.cform label{font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;gap:2px}.cform input,.cform select,.cform textarea{border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit;font-size:14px}
+.safe{background:var(--warn-soft);border:1px solid #ECD49A;border-radius:8px;padding:6px 10px;font-size:13px;margin-top:6px}
 .realtag{font-size:12px;font-weight:700;padding:3px 9px;border-radius:5px;color:var(--ok);background:var(--ok-soft);border:1px solid #BFE0CD}
 .chip{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:5px;border:1px solid var(--line);color:var(--ink2);background:#F7F8FA;white-space:nowrap}
 .chip.bad{color:var(--bad);background:var(--bad-soft);border-color:#F0C6BD}
@@ -238,6 +244,7 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
   <button data-v="model" data-t="tab.model"></button>
   <button data-v="log" data-t="tab.log"></button>
   <button data-v="farm" data-t="tab.farm"></button>
+  <button data-v="fix" data-t="tab.fix"></button>
 </nav>
 
 <main>
@@ -503,6 +510,21 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
     </div>
   </div>
 </section>
+<!-- ===================== FAULT RESOLUTION ===================== -->
+<section class="view" id="v-fix">
+  <div class="farmbanner"><span data-t="fix.banner"></span></div>
+  <div class="qwrap">
+    <div class="card"><h2 style="margin:0 0 6px" data-t="fix.active"></h2>
+      <div style="max-height:520px;overflow:auto"><table class="qtbl"><thead><tr><th data-t="th.priority"></th><th data-t="fix.col.id"></th><th data-t="th.site"></th><th data-t="th.diag"></th><th data-t="fix.level"></th><th data-t="fix.col.stage"></th></tr></thead><tbody id="xBody"></tbody></table></div></div>
+    <div class="card acard" id="xCard"><p class="small" data-t="fix.pick"></p></div>
+  </div>
+  <div class="two" style="margin-top:14px">
+    <div class="card"><h2 style="margin:0" data-t="fix.contacts"></h2><div id="cList"></div>
+      <div class="cform" id="cForm"></div><div class="row" style="margin-top:8px"><button class="btn dark" id="cSave" data-t="c.save"></button><button class="btn" id="cNew" data-t="fix.add"></button><span class="small" id="cMsg"></span></div></div>
+    <div class="side"><div class="card"><h2 style="margin:0 0 4px" data-t="fix.reports"></h2><div id="xReports"></div></div>
+      <div class="card"><h2 style="margin:0 0 4px" data-t="fix.history"></h2><div id="xHist" style="max-height:260px;overflow:auto"></div></div></div>
+  </div>
+</section>
 <p class="foot" data-t="foot"></p>
 </main>
 
@@ -543,6 +565,7 @@ function setLang(l, tell){
   applyStatic(); setModeText(); if (cur) render(); if (fleet) { drawFleet(); drawAlerts(); } if (tab === "log") loadLog(); loadRecent();
   if (mode === "live") { renderLive(); drawWhatif(true); }
   if (tab === "farm" && FC) { buildFarmForm(); drawFarm(); renderQueue(); }
+  if (tab === "fix") { renderFix(); }
   if (tell) fetch("/settings", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({lang:l})}).catch(()=>{});
 }
 
@@ -565,7 +588,7 @@ setInterval(()=>{ $("clock").textContent = new Date().toLocaleTimeString("en-IN"
 function showTab(v){ tab = v;
   [...$("tabs").children].forEach(b => b.classList.toggle("on", b.dataset.v === v));
   document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-"+v));
-  if (v==="fleet") loadFleet(); if (v==="model") loadModel(); if (v==="log") loadLog(); if (v==="farm") loadFarm();
+  if (v==="fleet") loadFleet(); if (v==="model") loadModel(); if (v==="log") loadLog(); if (v==="farm") loadFarm(); if (v==="fix") loadFix();
   if (v==="diag") { if (mode==="live") { drawLiveChart(); drawWhatif(true); drawTrend(); } else if (cur) drawChart(); } window.scrollTo(0,0);
 }
 $("tabs").onclick = e => { if (e.target.dataset.v) showTab(e.target.dataset.v); };
@@ -973,12 +996,13 @@ function drawFleet(){
 }
 $("filters").onclick = e => { if (e.target.dataset.f) { fleetFilter = e.target.dataset.f; drawFleet(); } };
 $("qRows").onclick = e => { const tr = e.target.closest("tr"); if (tr) { const r = fleet.rows.find(q=>q.site===tr.dataset.site); if (r) openRow(r); } };
+const kbOf = l => ({soiling:"soiling", partial_shade:"partial_shade", series_resistance:"loose_connection", bypass_short:"bypass_diode", less_light:"light_blocked", voltage_loss:"unexpected_readings", unclear:"unexpected_readings"})[l] || "unexpected_readings";
 function drawAlerts(){
   if (!fleet) return; const a = fleet.rows.filter(r => (r.label!=="healthy" || r.status!=="ok") && r.label!=="no_baseline");
   $("bellN").hidden = !a.length; $("bellN").textContent = a.length;
   $("alertList").innerHTML = a.length ? a.map(r => { const [sc, sk] = sevOf(r);
     return `<button class="al" data-site="${r.site}"><div class="t"><span>${esc(T("f."+r.label))}</span><span class="num">₹${nf(r.inr_day,1)} ${esc(T("fig.perday"))}</span></div>
-      <div class="w">${esc(whereOf(r))}</div><div class="m">${r.site}, ${esc(r.locality)} · ${r.bench ? `<span class="realtag">${esc(T("tag.real"))}</span> · ` : ""}${esc(agoRow(r))} · <span class="chip ${sc}">${esc(T(sk))}</span></div></button>`; }).join("")
+      <div class="w">${esc(whereOf(r))}</div><div class="w" style="font-weight:500">→ ${esc(T("kb."+kbOf(r.label)+".s1"))}</div><div class="m">${r.site}, ${esc(r.locality)} · ${r.bench ? `<span class="realtag">${esc(T("tag.real"))}</span> · ` : ""}${esc(agoRow(r))} · <span class="chip ${sc}">${esc(T(sk))}</span></div></button>`; }).join("")
     : `<p class="small">${esc(T("alerts.empty"))}</p>`;
 }
 const closeDrawer = () => document.body.classList.remove("drawer");
@@ -1163,6 +1187,7 @@ async function showCard(key){
   qSel = key; const i = (Q.items||[]).find(x => x.key===key); if (!i) return; renderQueue(); const c = i.card, f = i.factors;
   const h = await fetch("/maint/history?key="+encodeURIComponent(key)).then(r=>r.json()).catch(()=>[]);
   $("aCard").innerHTML = `<div class="row"><b>${esc(i.node)}</b> <span class="cat ${i.category}">${esc(T("cat."+i.category))} · ${nf(i.score,0)}</span> ${srcTag(i.source)}</div>
+    <p style="margin:6px 0 0"><button class="btn" data-fixgo="${i.fault_id}">${esc(T("tab.fix"))} →</button></p>
     <h3>${esc(T("maint.h.what"))}</h3><p>${esc(T(c.what.key,c.what.p))}</p>
     <h3>${esc(T(c.why_head))}</h3><p>${esc(T(c.why.key))}</p>
     <h3>${esc(T("maint.h.todo"))}</h3><p>${esc(T(c.todo.key))}</p>
@@ -1172,9 +1197,92 @@ async function showCard(key){
     <h3>${esc(T("maint.h.factors"))}</h3><p class="small">${esc(T("maint.factors",f))}</p>
     <h3>${esc(T("maint.h.history"))}</h3><ul class="small">${h.map(x => `<li>${clock(x.ts)} · ${esc(T("status."+x.status))}${x.note ? " · " + esc(x.note) : ""}</li>`).join("")}</ul>`;
 }
+document.addEventListener("click", async e => { const g = e.target.dataset && e.target.dataset.fixgo; if (g) { xSel = g; showTab("fix"); await loadFix(); renderCard(); return; } });
 document.addEventListener("click", e => { const tr = e.target.closest("#v-farm tr[data-k]"); if (tr && e.target.tagName!=="SELECT") showCard(tr.dataset.k); });
 document.addEventListener("change", async e => { const sel = e.target.closest("#v-farm select[data-k]"); if (!sel) return;
   await fetch("/maint/status", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({key:sel.dataset.k, status:sel.value, note:"console"})}); qSel = sel.dataset.k; await loadQueue(); });
+
+/* ---------- fault resolution: detect -> understand -> contact -> report -> track -> verify ---------- */
+let XF = [], XC = [], XR = [], XH = [], xSel = null, xDraft = null, xTimer = null, xEdit = null, xVerify = null;
+const RECIPIENTS = ["technician","cleaning","manufacturer","site_manager","authority"], CATS = RECIPIENTS;
+const lvlTag = l => `<span class="lvl ${l.split(" ")[0]}">${esc(T("lvl."+l))}</span>`;
+const stgTag = st => st ? `<span class="stg ${st.stage}">${esc(T("stage."+st.stage))}${st.verified===1?" ✓":""}</span>` : `<span class="small">-</span>`;
+const fKind = f => ["soiling","partial_shade","series_resistance","bypass_short"].includes(f.kind) ? T("f."+f.kind) : T("maint.kind."+f.kind);
+async function loadFix(){
+  try { [XF, XC, XR, XH] = await Promise.all([fetch("/faults").then(r=>r.json()), fetch("/contacts").then(r=>r.json()), fetch("/reports").then(r=>r.json()), fetch("/resolution/history").then(r=>r.json())]); } catch(e) { return; }
+  renderFix(); clearInterval(xTimer); xTimer = setInterval(() => { if (tab==="fix") refreshFix(); }, 2000); }
+async function refreshFix(){
+  try { XF = await fetch("/faults").then(r=>r.json()); XH = await fetch("/resolution/history").then(r=>r.json()); XR = await fetch("/reports").then(r=>r.json()); } catch(e) { return; }
+  renderFaults(); renderSideLists(); if (xSel) { const f = XF.find(x => x.fault_id===xSel); if (f && f.ticket && f.ticket.stage==="awaiting_verification") await pollVerify(f); } }
+function renderFix(){ renderFaults(); renderContacts(); renderSideLists(); if (xSel) renderCard(); }
+function renderFaults(){
+  $("xBody").innerHTML = XF.length ? XF.map(f => `<tr class="click ${xSel===f.fault_id?"sel":""}" data-fid="${f.fault_id}"><td>${f.priority ? `<span class="cat ${f.priority}">${esc(T("cat."+f.priority))}</span> <b class="num">${nf(f.score,0)}</b>` : ""}</td>
+    <td class="num"><b>${f.fault_id}</b></td><td><b>${esc(f.node)}</b> ${f.source==="REAL"?`<span class="realtag">${esc(T("tag.real"))}</span>`:`<span class="simtag">${esc(T("tag.sim"))}</span>`}</td><td>${esc(fKind(f))}${f.cleared?" ✓":""}</td><td>${lvlTag(f.level)}</td><td>${stgTag(f.ticket)}</td></tr>`).join("")
+    : `<tr><td colspan="6" class="small">${esc(T("maint.empty"))}</td></tr>`; }
+$("xBody").onclick = e => { const tr = e.target.closest("tr[data-fid]"); if (tr) { xSel = tr.dataset.fid; xDraft = null; renderFaults(); renderCard(); } };
+function ul(keys){ return `<ul>${keys.map(k => `<li>${esc(T(k))}</li>`).join("")}</ul>`; }
+async function renderCard(){
+  const f = XF.find(x => x.fault_id===xSel); if (!f) return; const e = f.entry, t = f.ticket, cat = T("rec."+e.service_category);
+  const evid = f.card.evidence.map(x => `<li>${esc(T(x.key,x.p))}</li>`).join("");
+  const sc = f.contacts[0];
+  let html = `<div class="row"><b>${esc(f.node)}</b> <span class="num small">${f.fault_id}</span> ${lvlTag(f.level)} ${f.source==="REAL"?`<span class="realtag">${esc(T("tag.real"))}</span>`:`<span class="simtag">${esc(T("tag.sim"))}</span>`}</div>
+    <h3>${esc(T(e.name))}</h3><p>${esc(T(e.description))}</p>${f.cleared?`<p class="small"><b>${esc(T("fix.cleared"))}</b></p>`:""}
+    <h3>${esc(T("fix.h.causes"))}</h3>${ul(e.causes)}<h3>${esc(T("fix.h.confirm"))}</h3>${ul(e.confirm)}${e.sensor_note?`<div class="safe"><b>${esc(T("fix.sensor"))}:</b> ${esc(T(e.sensor_note))}</div>`:""}
+    <h3>${esc(T("maint.h.ev"))}</h3><ul>${evid}</ul>
+    <h3>${esc(T("fix.h.steps"))}</h3><ol>${e.steps.map(k => `<li>${esc(T(k))}</li>`).join("")}</ol>
+    <h3>${esc(T("fix.h.cat"))}</h3><p>${esc(cat)}</p><h3>${esc(T("fix.h.follow"))}</h3><p>${esc(T(e.follow_up))}</p>
+    <div class="safe"><b>${esc(T("fix.h.safety"))}:</b> ${e.safety.map(k => esc(T(k))).join(" ")}</div>
+    <h3>${esc(T("fix.contact",{cat}))}</h3>`;
+  if (f.n_contacts) html += `<div class="row">${f.contacts.map(c => `<button class="btn dark" data-draft="${c.id}">${esc(T("fix.contact",{cat:c.name}))}</button>`).join("")}</div>`;
+  else html += `<p class="small">${esc(T("fix.nocontact"))}</p><button class="btn" id="xAddC">${esc(T("fix.add"))}</button>`;
+  html += `<div id="xDraft">${xDraft ? draftHtml(xDraft) : ""}</div>
+    <h3>${esc(T("fix.report"))}</h3><div class="row"><label class="small">${esc(T("fix.report.for"))} <select id="xRec">${RECIPIENTS.map(r => `<option value="${r}" ${r===e.service_category?"selected":""}>${esc(T("rec."+r))}</option>`).join("")}</select></label><button class="btn dark" id="xOpen">${esc(T("fix.report.open"))}</button></div>`;
+  html += `<h3>${esc(T("fix.col.stage"))}</h3>`;
+  if (!t) html += `<button class="btn dark" id="xTicket">${esc(T("fix.ticket.make"))}</button>`;
+  else html += `<div class="row">${stgTag(t)}<span class="small">${t.code}${t.report_id ? " · "+esc(t.report_id) : ""}${t.verified===1 ? ` · <b>${esc(T("fix.verified"))}</b>` : t.verified===2 ? ` · <b>${esc(T("fix.verified.sim"))}</b>` : t.stage==="resolved" ? ` · ${esc(T("fix.resolved.unverified"))}` : ""}</span></div>
+    <div class="row" style="margin-top:6px"><select id="xStage">${["detected","report_generated","contacted","inspection","awaiting_verification","resolved","reopened"].map(s => `<option value="${s}" ${t.stage===s?"selected":""}>${esc(T("stage."+s))}</option>`).join("")}</select>
+      <select id="xContact"><option value="">${esc(T("fix.nocontact.sel"))}</option>${XC.map(c => `<option value="${c.id}" ${t.contact_id===c.id?"selected":""}>${esc(c.name)} (${esc(T("rec."+c.category))})</option>`).join("")}</select>
+      <input id="xNote" placeholder="${esc(T("fix.note"))}" style="border:1px solid var(--line);border-radius:6px;padding:5px 8px;flex:1;min-width:120px"><button class="btn" id="xSet">${esc(T("fix.stage.set"))}</button></div>
+    <h3>${esc(T("fix.verify"))}</h3><div class="row"><button class="btn dark" id="xVer">${esc(f.key==="real:SN-001:live" ? T("fix.verify.live") : T("fix.verify.sim"))}</button><span class="small" id="xVerMsg"></span></div>`;
+  $("xCard").innerHTML = html; if (t && t.stage==="awaiting_verification") pollVerify(f);
+}
+function draftHtml(d){ return `<div class="draft"><div class="small"><b>${esc(T("fix.draft.to"))}:</b> ${esc(d.to_name)} ${esc(d.to_email)} ${esc(d.to_phone)}</div><div class="small"><b>${esc(T("fix.draft.subject"))}:</b> ${esc(d.subject)}</div>
+  <pre>${esc(d.body)}</pre><div class="row">${d.mailto ? `<a class="btn" href="${d.mailto}">${esc(T("fix.draft.mail"))}</a>` : `<span class="small">${esc(T("fix.noemail"))}</span>`}${d.tel ? `<a class="btn" href="${d.tel}">${esc(T("fix.draft.call"))} ${esc(d.to_phone)}</a>` : ""}<button class="btn" id="xCopy">${esc(T("fix.draft.copy"))}</button></div><p class="small" style="margin:6px 0 0">${esc(T("fix.draft.note"))}</p></div>`; }
+async function pollVerify(f){
+  const t = f.ticket; if (!t) return; let v; try { v = await fetch(`/tickets/${t.id}/verify`).then(r=>r.json()); } catch(e) { return; }
+  const el = $("xVerMsg"); if (!el) return;
+  if (v.status==="waiting") el.textContent = T("fix.verify.waiting",{g:v.green_s, h:Math.round(v.held_s)});
+  else if (v.status==="verified" || v.status==="verified_sim") { el.textContent = v.mode==="sim" ? T("fix.verify.sim.ok",{x:nf(v.after_loss_pct,1)}) : T("fix.verify.ok",{after:nf(v.after_ma,2), before:nf(v.before_ma,2), g:v.green_s}); }
+  else if (v.status==="not_verified") el.textContent = T("fix.verify.no"); }
+$("xCard").onclick = async e => {
+  const f = XF.find(x => x.fault_id===xSel); if (!f) return; const t = f.ticket, id = e.target.id;
+  if (e.target.dataset.draft) { xDraft = await fetch(`/faults/${f.fault_id}/draft?contact_id=${e.target.dataset.draft}&lang=${LANG}`).then(r=>r.json()); $("xDraft").innerHTML = draftHtml(xDraft); }
+  else if (id==="xCopy") { try { await navigator.clipboard.writeText(xDraft.subject + "\n\n" + xDraft.body); toast(T("fix.draft.copied")); } catch(err) {} }
+  else if (id==="xAddC") { xEdit = {category:f.service_category}; drawCForm(); $("cForm").scrollIntoView({behavior:"smooth"}); }
+  else if (id==="xOpen") { window.open(`/report/${f.fault_id}?recipient=${$("xRec").value}&lang=${LANG}`, "_blank"); setTimeout(refreshFix, 1500); }
+  else if (id==="xTicket") { await fetch(`/faults/${f.fault_id}/ticket`, {method:"POST"}); await refreshFix(); renderCard(); }
+  else if (id==="xSet") { await post(`/tickets/${t.id}/stage`, {stage:$("xStage").value, note:$("xNote").value, contact_id:$("xContact").value ? +$("xContact").value : null}); await refreshFix(); renderCard(); }
+  else if (id==="xVer") { const r = await fetch(`/tickets/${t.id}/verify`, {method:"POST"}); if (!r.ok) { toast(T("fix.verify.no")); return; } await refreshFix(); renderCard(); }
+};
+function renderSideLists(){
+  $("xReports").innerHTML = XR.length ? XR.slice(0,10).map(r => `<div class="small" style="padding:3px 0;border-top:1px solid var(--line2)"><b>${esc(r.id)}</b> · ${clock(r.ts)} · ${esc(r.fault_id)} · <a href="/report/${r.fault_id}?recipient=${r.recipient}&lang=${r.lang}" target="_blank">${esc(T("rec."+r.recipient))}</a></div>`).join("") : `<p class="small">${esc(T("fix.reports.empty"))}</p>`;
+  $("xHist").innerHTML = XH.length ? XH.slice(0,40).map(h => `<div class="small" style="padding:3px 0;border-top:1px solid var(--line2)">${clock(h.ts)} · <b>${esc(h.ticket)}</b> ${esc(h.site)} · ${esc(T("stage."+h.stage))}${h.verified==="measurement" ? ` ✓ ${esc(T("fix.verified"))}` : h.verified==="simulation" ? ` ✓ ${esc(T("fix.verified.sim"))}` : ""}${h.note ? " · "+esc(h.note) : ""}</div>`).join("") : `<p class="small">${esc(T("fix.history.empty"))}</p>`; }
+/* service directory: starts EMPTY, nothing invented */
+function renderContacts(){
+  $("cList").innerHTML = XC.length ? `<table class="qtbl"><tbody>${XC.map(c => `<tr><td><b>${esc(c.name)}</b><div class="small">${esc(T("rec."+c.category))}${c.area ? " · "+esc(c.area) : ""}</div></td><td class="small">${esc(c.phone)}<br>${esc(c.email)}</td><td><button class="btn" data-ce="${c.id}">${esc(T("c.edit"))}</button> <button class="btn" data-cd="${c.id}">${esc(T("c.delete"))}</button></td></tr>`).join("")}</tbody></table>` : `<p class="small">${esc(T("fix.contacts.empty"))}</p>`;
+  drawCForm(); }
+function drawCForm(){
+  const c = xEdit || {}, f = (k, ty="text") => `<label>${esc(T("c."+k))}<input data-cf="${k}" type="${ty}" value="${esc(c[k]||"")}"></label>`;
+  $("cForm").innerHTML = f("name") + `<label>${esc(T("c.category"))}<select data-cf="category">${CATS.map(k => `<option value="${k}" ${c.category===k?"selected":""}>${esc(T("rec."+k))}</option>`).join("")}</select></label>` + f("phone","tel") + f("email","email") + f("area") + f("website") + f("hours") + f("notes") +
+    `<label>${esc(T("c.preferred"))}<select data-cf="preferred">${["either","phone","email"].map(k => `<option value="${k}" ${(c.preferred||"either")===k?"selected":""}>${esc(T("c.pref."+k))}</option>`).join("")}</select></label>`; }
+$("cNew").onclick = () => { xEdit = null; drawCForm(); };
+$("cSave").onclick = async () => {
+  const d = {}; $("cForm").querySelectorAll("[data-cf]").forEach(el => d[el.dataset.cf] = el.value);
+  const r = await fetch(xEdit && xEdit.id ? "/contacts/"+xEdit.id : "/contacts", {method:xEdit && xEdit.id ? "PUT" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d)});
+  if (!r.ok) { $("cMsg").textContent = T("c.name") + "?"; return; } $("cMsg").textContent = T("c.saved"); xEdit = null; XC = await fetch("/contacts").then(r=>r.json()); await refreshFix(); renderContacts(); if (xSel) renderCard(); };
+$("cList").onclick = async e => { const ed = e.target.dataset.ce, de = e.target.dataset.cd;
+  if (ed) { xEdit = XC.find(c => c.id===+ed); drawCForm(); }
+  if (de) { await fetch("/contacts/"+de, {method:"DELETE"}); XC = await fetch("/contacts").then(r=>r.json()); await refreshFix(); renderContacts(); if (xSel) renderCard(); } };
 
 /* ---------- start ---------- */
 (async function(){

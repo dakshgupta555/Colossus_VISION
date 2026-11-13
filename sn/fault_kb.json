@@ -1,0 +1,232 @@
+{
+ "_note": "Fault knowledge base. Every alert card reads from this file, so no alert exists without a next step. Text lives in sn/i18n.py (keys here). evidence_level: CONFIRMED (a fact the data shows), SUSPECTED (likely cause, not verified), POSSIBLE SENSOR ERROR (the reading itself may be wrong). Categories: technician, cleaning, manufacturer, site_manager, authority.",
+ "recipients": [
+  "technician",
+  "cleaning",
+  "manufacturer",
+  "site_manager",
+  "authority"
+ ],
+ "faults": {
+  "soiling": {
+   "name": "kb.soiling.name",
+   "description": "kb.soiling.desc",
+   "causes": [
+    "kb.soiling.c1",
+    "kb.soiling.c2"
+   ],
+   "confirm": [
+    "kb.soiling.f1",
+    "kb.soiling.f2"
+   ],
+   "steps": [
+    "kb.soiling.s1",
+    "kb.soiling.s2",
+    "kb.soiling.s3"
+   ],
+   "service_category": "cleaning",
+   "follow_up": "kb.soiling.follow",
+   "safety": [
+    "kb.safety.general",
+    "kb.safety.clean"
+   ],
+   "evidence_level": "SUSPECTED",
+   "sensor_note": null,
+   "maps_from": [
+    "soiling"
+   ]
+  },
+  "partial_shade": {
+   "name": "kb.partial_shade.name",
+   "description": "kb.partial_shade.desc",
+   "causes": [
+    "kb.partial_shade.c1",
+    "kb.partial_shade.c2"
+   ],
+   "confirm": [
+    "kb.partial_shade.f1",
+    "kb.partial_shade.f2"
+   ],
+   "steps": [
+    "kb.partial_shade.s1",
+    "kb.partial_shade.s2",
+    "kb.partial_shade.s3"
+   ],
+   "service_category": "site_manager",
+   "follow_up": "kb.partial_shade.follow",
+   "safety": [
+    "kb.safety.general",
+    "kb.safety.height"
+   ],
+   "evidence_level": "SUSPECTED",
+   "sensor_note": null,
+   "maps_from": [
+    "partial_shade"
+   ]
+  },
+  "bypass_diode": {
+   "name": "kb.bypass_diode.name",
+   "description": "kb.bypass_diode.desc",
+   "causes": [
+    "kb.bypass_diode.c1",
+    "kb.bypass_diode.c2"
+   ],
+   "confirm": [
+    "kb.bypass_diode.f1",
+    "kb.bypass_diode.f2"
+   ],
+   "steps": [
+    "kb.bypass_diode.s1",
+    "kb.bypass_diode.s2",
+    "kb.bypass_diode.s3"
+   ],
+   "service_category": "technician",
+   "follow_up": "kb.bypass_diode.follow",
+   "safety": [
+    "kb.safety.general"
+   ],
+   "evidence_level": "SUSPECTED",
+   "sensor_note": "kb.sensor.bypass",
+   "maps_from": [
+    "bypass_short"
+   ]
+  },
+  "loose_connection": {
+   "name": "kb.loose_connection.name",
+   "description": "kb.loose_connection.desc",
+   "causes": [
+    "kb.loose_connection.c1",
+    "kb.loose_connection.c2"
+   ],
+   "confirm": [
+    "kb.loose_connection.f1",
+    "kb.loose_connection.f2"
+   ],
+   "steps": [
+    "kb.loose_connection.s1",
+    "kb.loose_connection.s2",
+    "kb.loose_connection.s3"
+   ],
+   "service_category": "technician",
+   "follow_up": "kb.loose_connection.follow",
+   "safety": [
+    "kb.safety.general"
+   ],
+   "evidence_level": "SUSPECTED",
+   "sensor_note": "kb.sensor.loose",
+   "maps_from": [
+    "series_resistance"
+   ]
+  },
+  "node_offline": {
+   "name": "kb.node_offline.name",
+   "description": "kb.node_offline.desc",
+   "causes": [
+    "kb.node_offline.c1",
+    "kb.node_offline.c2"
+   ],
+   "confirm": [
+    "kb.node_offline.f1",
+    "kb.node_offline.f2"
+   ],
+   "steps": [
+    "kb.node_offline.s1",
+    "kb.node_offline.s2",
+    "kb.node_offline.s3"
+   ],
+   "service_category": "technician",
+   "follow_up": "kb.node_offline.follow",
+   "safety": [
+    "kb.safety.general"
+   ],
+   "evidence_level": "CONFIRMED",
+   "sensor_note": null,
+   "maps_from": [
+    "node_offline"
+   ]
+  },
+  "unexpected_readings": {
+   "name": "kb.unexpected_readings.name",
+   "description": "kb.unexpected_readings.desc",
+   "causes": [
+    "kb.unexpected_readings.c1",
+    "kb.unexpected_readings.c2"
+   ],
+   "confirm": [
+    "kb.unexpected_readings.f1",
+    "kb.unexpected_readings.f2"
+   ],
+   "steps": [
+    "kb.unexpected_readings.s1",
+    "kb.unexpected_readings.s2",
+    "kb.unexpected_readings.s3"
+   ],
+   "service_category": "technician",
+   "follow_up": "kb.unexpected_readings.follow",
+   "safety": [
+    "kb.safety.general"
+   ],
+   "evidence_level": "POSSIBLE SENSOR ERROR",
+   "sensor_note": "kb.sensor.unexpected",
+   "maps_from": [
+    "unexpected_readings"
+   ]
+  },
+  "light_blocked": {
+   "name": "kb.light_blocked.name",
+   "description": "kb.light_blocked.desc",
+   "causes": [
+    "kb.light_blocked.c1",
+    "kb.light_blocked.c2"
+   ],
+   "confirm": [
+    "kb.light_blocked.f1",
+    "kb.light_blocked.f2"
+   ],
+   "steps": [
+    "kb.light_blocked.s1",
+    "kb.light_blocked.s2",
+    "kb.light_blocked.s3"
+   ],
+   "service_category": "site_manager",
+   "follow_up": "kb.light_blocked.follow",
+   "safety": [
+    "kb.safety.general"
+   ],
+   "evidence_level": "SUSPECTED",
+   "sensor_note": "kb.sensor.light",
+   "maps_from": [
+    "live_amber",
+    "live_red"
+   ]
+  },
+  "zone_issue": {
+   "name": "kb.zone_issue.name",
+   "description": "kb.zone_issue.desc",
+   "causes": [
+    "kb.zone_issue.c1",
+    "kb.zone_issue.c2"
+   ],
+   "confirm": [
+    "kb.zone_issue.f1",
+    "kb.zone_issue.f2"
+   ],
+   "steps": [
+    "kb.zone_issue.s1",
+    "kb.zone_issue.s2",
+    "kb.zone_issue.s3"
+   ],
+   "service_category": "site_manager",
+   "follow_up": "kb.zone_issue.follow",
+   "safety": [
+    "kb.safety.general",
+    "kb.safety.height"
+   ],
+   "evidence_level": "SUSPECTED",
+   "sensor_note": null,
+   "maps_from": [
+    "zone_issue"
+   ]
+  }
+ }
+}

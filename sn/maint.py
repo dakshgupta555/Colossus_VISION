@@ -12,7 +12,7 @@ import time
 
 STATUSES = ["pending", "inspection", "resolved", "false_alarm"]
 FAULT_CLASSES = ["soiling", "partial_shade", "series_resistance", "bypass_short"]
-KINDS = FAULT_CLASSES + ["live_amber", "live_red", "zone_issue", "node_offline"]
+KINDS = FAULT_CLASSES + ["live_amber", "live_red", "zone_issue", "node_offline", "unexpected_readings"]
 
 
 def init(con):

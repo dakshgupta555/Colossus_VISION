@@ -11,7 +11,7 @@ from . import calib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PATH = os.environ.get("SN_LIVE_CFG") or os.path.join(ROOT, "data", "live_thresholds.json")
-DEFAULT = dict(mode="simple", green_ma=0.35, amber_ma=0.20, full_ma=0.5, avg_s=2.0, hold_s=1.5, alert_gap_s=30)
+DEFAULT = dict(mode="simple", green_ma=0.35, amber_ma=0.20, full_ma=0.5, avg_s=2.0, hold_s=1.5, alert_gap_s=30, verify_green_s=10, verify_window_s=120)
 STATE_TO_TWIN = {"green": "healthy", "amber": "attention", "red": "critical"}   # names the twin and the page already style
 
 

@@ -14,7 +14,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from sn import alerts, config as C, engine, i18n, maint as MAINT
+from sn import alerts, config as C, engine, i18n, maint as MAINT, resolve as RESOLVE
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("SN_DB") or os.path.join(ROOT, "data", "suryanidaan.db")
@@ -34,6 +34,7 @@ def db():
     MAINT.init(con)
     con.execute("""CREATE TABLE IF NOT EXISTS tickets (
         id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, site TEXT, label TEXT, sweep_id INTEGER, status TEXT)""")
+    RESOLVE.init(con)
     return con
 
 
@@ -578,8 +579,9 @@ def _live_episode(prev, state, avg, drop, now):
             if prev in (None, "green"):
                 MAINT.note_episode(con, LIVE_KEY, "new %s episode" % state)
                 _live_info.update(since=now)
-            _live_info.update(state=state, avg=avg, drop=drop)
+            _live_info.update(state=state, avg=avg, drop=drop, green_since=None)
         else:
+            _live_info.update(green_since=now)
             if _live_info.get("state"):
                 MAINT.set_status(con, LIVE_KEY, "resolved", "state returned to green (automatic)")
             _live_info.update(state=None, since=None, avg=None, drop=None)
@@ -622,6 +624,8 @@ def _watch():
                     _live_episode(prev, committed, avg, livemode.drop_pct(avg, cfg), now)
                 if changed and prev is not None:
                     _live_alert(prev, committed, avg, livemode.drop_pct(avg, cfg))
+                if now - last_rec >= 1.0:
+                    _verify_tick(avg, now)
                 if now - last_rec >= 2.0:
                     last_rec = now
                     _session.append((now, None, livemode.light_pct(avg, cfg) if online else None))
@@ -812,10 +816,13 @@ def _farm_items():
 def _queue_items():
     items = []
     for row in fleet(C.DEFAULT_YIELD, C.DEFAULT_TARIFF)["rows"]:             # the EXISTING service queue (simulated fleet + bench rows)
-        if row.get("bench") or row["label"] == "healthy" or row["label"] not in MAINT.FAULT_CLASSES:
+        if row.get("bench"):
             continue
-        items.append(dict(key="fleet:%s:%s" % (row["site"], row["label"]), kind=row["label"], source="REAL" if row["source"] == "real" else "SIMULATED",
-                          node=row["site"], severity=min(1.0, row["loss_pct"] / 50.0), minutes_ago=row["minutes_ago"], inr_day=row["inr_day"],
+        odd = row["status"] != "ok"                                              # uncertain / unknown readings: the reading itself may be wrong
+        if not odd and (row["label"] == "healthy" or row["label"] not in MAINT.FAULT_CLASSES):
+            continue
+        items.append(dict(key="fleet:%s:%s" % (row["site"], "unexpected" if odd else row["label"]), kind="unexpected_readings" if odd else row["label"], source="REAL" if row["source"] == "real" else "SIMULATED",
+                          node=row["site"], severity=0.4 if odd else min(1.0, row["loss_pct"] / 50.0), minutes_ago=row["minutes_ago"], inr_day=row["inr_day"],
                           evidence_strength=row["confidence"] if row["status"] == "ok" else 0.4, loss_pct=row["loss_pct"], conf=row["confidence"],
                           ticket=row.get("ticket") or None, locality=row["locality"]))
     if _live_info.get("state") and _live_info.get("since"):                  # the REAL SN-001 live episode (alerts feed this)
@@ -847,6 +854,7 @@ def maint_queue(include_closed: bool = True):
             it["status"], it["occurrences"] = r[0], r[1]
             sc, cat, fac = MAINT.score(it, r[1], cfg)
             it.update(score=sc, category=cat, factors=fac, badge=it["source"], card=MAINT.card(it))
+            it["fault_id"] = RESOLVE.fault_id(it["key"])
             out.append(it)
         con.commit()
         con.close()
@@ -880,6 +888,424 @@ def maint_history(key: str):
         h = MAINT.history(con, key)
         con.close()
     return h
+
+
+# ---------------------------------------------------------------- fault resolution and reports (extends tickets, alerts, the service queue)
+import json as _json
+
+from fastapi.responses import HTMLResponse
+
+from sn import faultkb as KB, report as REPORT
+
+
+def _lang(lang):
+    return lang if lang in i18n.LANGS else _settings()["lang"]
+
+
+def _loc(item):
+    if item["node"] == "SN-001":
+        return BENCH_SITE[0]
+    if item["key"].startswith("farm:"):
+        return "Simulated farm (schematic layout)"
+    return item.get("locality") or item["node"]
+
+
+def _all_fault_items():
+    items = maint_queue(True)["items"]
+    keys = {i["key"] for i in items}
+    with _lock:
+        con = db()
+        rows = con.execute("SELECT fault_key, snapshot FROM tickets WHERE fault_key IS NOT NULL AND stage != 'resolved' AND snapshot IS NOT NULL").fetchall()
+        con.close()
+    for key, snap in rows:                       # a fault that has cleared but is not verified yet stays visible
+        if key not in keys:
+            it = _json.loads(snap)
+            it.update(cleared=True, card=MAINT.card(it), status=it.get("status", "inspection"))
+            items.append(it)
+    for i in items:
+        i["fault_id"] = RESOLVE.fault_id(i["key"])
+    return items
+
+
+def _find_fault(fid):
+    for i in _all_fault_items():
+        if i["fault_id"] == fid:
+            return i
+    raise HTTPException(404, "unknown fault")
+
+
+def _fault_view(item, con):
+    kb = KB.id_for_kind(item["kind"])
+    e = KB.entry(kb)
+    t = RESOLVE.ticket_get(con, key=item["key"])
+    cm = RESOLVE.match(con, e["service_category"], _loc(item))
+    return dict(fault_id=item["fault_id"], key=item["key"], kind=item["kind"], kb=kb, entry=e, level=e["evidence_level"], service_category=e["service_category"],
+                node=item["node"], source=item["source"], score=item.get("score"), priority=item.get("category"), maint_status=item.get("status"),
+                location=_loc(item), cleared=bool(item.get("cleared")), card=item["card"], minutes_ago=item.get("minutes_ago"), loss_pct=item.get("loss_pct"),
+                inr_day=item.get("inr_day"), ticket=t, contacts=cm[:3], n_contacts=len(cm))
+
+
+def _hhmm(ts):
+    return time.strftime("%H:%M:%S", time.localtime(ts))
+
+
+def _fault_evidence(item):
+    """Readings with units and timestamps + a chart input, tagged REAL or SIMULATED. Nothing is invented."""
+    now = time.time()
+    src = item["source"]
+    R_ = lambda label, v, unit, ts=None, s=None: dict(label=label, value=v, unit=unit, time=_hhmm(ts or now), source=s or src)
+    kind, key = item["kind"], item["key"]
+    if key == LIVE_KEY:
+        with _lock:
+            rows = [r for r in _telemetry.get(NODE, ()) if now - r["ts"] <= 300]
+        cfg = livemode.load_cfg()
+        avg, n = livemode.window_avg(rows, now, cfg["avg_s"])
+        since = _live_info.get("since") or (now - (item.get("minutes_ago") or 0) * 60)
+        if item.get("cleared"):          # the condition has gone: show the values from the time of the fault, and 'now' separately
+            ev = [R_("ev.row.current", round(item["avg_ma"], 2) if item.get("avg_ma") is not None else "-", "mA", since), R_("ev.row.drop", round(item.get("loss_pct") or 0), "%", since),
+                  R_("ev.row.state", kind.replace("live_", "").upper(), "", since), R_("ev.row.current_now", round(avg, 2) if avg is not None else "-", "mA")]
+        else:
+            ev = [R_("ev.row.current", round(avg, 2) if avg is not None else "-", "mA"), R_("ev.row.drop", round(item.get("loss_pct") or 0), "%"),
+                  R_("ev.row.state", kind.replace("live_", "").upper(), "", since)]
+        if rows and rows[-1]["v"] is not None:
+            ev.insert(1, R_("ev.row.voltage", round(rows[-1]["v"], 2), "V", rows[-1]["ts"]))
+        return dict(source="REAL", rows=ev, chart=dict(type="line", series=[(r["ts"] - now, calib.apply(r["ma"])) for r in rows], xlabel="s", ylabel="mA", caption="rpt.chart.current") if len(rows) > 2 else None)
+    if key.startswith("fleet:"):
+        site = key.split(":")[1]
+        hit = _fleet(1.0, C.DEFAULT_YIELD, C.DEFAULT_TARIFF).get(site)
+        if hit:
+            row, payload, res = hit
+            t0 = now - row["minutes_ago"] * 60
+            ev = [R_("ev.row.isc", res["measured"]["isc_ma"], "mA", t0), R_("ev.row.isc_exp", res["expected"]["isc_ma"], "mA", t0), R_("ev.row.voc", res["measured"]["voc_v"], "V", t0),
+                  R_("ev.row.voc_exp", res["expected"]["voc_v"], "V", t0), R_("ev.row.pmax", res["measured"]["pmax_mw"], "mW", t0), R_("ev.row.pmax_exp", res["expected"]["pmax_mw"], "mW", t0),
+                  R_("ev.row.loss", res["loss_pct"], "%", t0), R_("ev.row.conf", round(res["confidence"] * 100), "%", t0)]
+            return dict(source="SIMULATED", rows=ev, chart=dict(type="iv", measured=[tuple(p) for p in payload["points"]], expected=[tuple(p) for p in res["expected_points"]], caption="rpt.chart.iv"))
+    sim = _farm_sim["result"]
+    if key.startswith("farm:zone:") and sim:
+        z = next((z for z in sim["zones"] if z["id"] == item["node"]), None)
+        if z:
+            return dict(source="SIMULATED", rows=[R_("ev.row.nodes", len(z["nodes"]), ""), R_("ev.row.blocks", z["n_blocks"], ""), R_("ev.row.loss", z["loss_pct"], "%"), R_("ev.row.money", z["inr_day"], "₹/day")],
+                        chart=dict(type="bars", labels=z["nodes"], values=[sim["nodes"][n]["loss_pct"] for n in z["nodes"]], unit="%", caption="rpt.chart.bars"))
+    if key.startswith("farm:") and sim and item["node"] in sim["nodes"]:
+        v = sim["nodes"][item["node"]]
+        if v["status"] == "offline":
+            return dict(source="SIMULATED", rows=[R_("ev.row.nodata", v["minutes_ago"], "min")], chart=None)
+        return dict(source="SIMULATED", rows=[R_("ev.row.loss", v["loss_pct"], "%"), R_("ev.row.money", v["inr_day"], "₹/day"), R_("ev.row.conf", round((v["conf"] or 0) * 100), "%")],
+                    chart=dict(type="bars", labels=[item["node"]], values=[v["loss_pct"]], unit="%", caption="rpt.chart.bars"))
+    return dict(source=src, rows=[R_("ev.row.loss", item.get("loss_pct") or 0, "%"), R_("ev.row.nodata", round(item.get("minutes_ago") or 0), "min")], chart=None)
+
+
+def _draft_ctx(item, lang, report_id=None):
+    kb = KB.entry(KB.id_for_kind(item["kind"]))
+    c = item["card"]
+    t = lambda k, p=None: i18n.t(lang, k, p)
+    return dict(node=item["node"], fault=t(kb["name"]), when=time.strftime("%d %b %Y %H:%M", time.localtime(time.time() - (item.get("minutes_ago") or 0) * 60)),
+                obs=t(c["what"]["key"], c["what"]["p"]), steps="\n".join("%d. %s" % (n + 1, t(s)) for n, s in enumerate(kb["steps"])), loc=_loc(item),
+                report_id=report_id, source=item["source"])
+
+
+class ContactReq(BaseModel):
+    name: str
+    category: str
+    phone: str = ""
+    email: str = ""
+    area: str = ""
+    website: str = ""
+    hours: str = ""
+    notes: str = ""
+    preferred: str = "either"
+
+
+@app.get("/kb")
+def get_kb():
+    return KB.load()
+
+
+@app.get("/contacts")
+def list_contacts():
+    with _lock:
+        con = db()
+        out = RESOLVE.contacts(con)
+        con.close()
+    return out
+
+
+@app.post("/contacts")
+def add_contact(c: ContactReq):
+    try:
+        with _lock:
+            con = db()
+            cid = RESOLVE.contact_add(con, c.model_dump())
+            con.close()
+    except ValueError as exc:
+        raise HTTPException(422, "invalid " + str(exc))
+    return dict(id=cid)
+
+
+@app.put("/contacts/{cid}")
+def edit_contact(cid: int, c: ContactReq):
+    try:
+        with _lock:
+            con = db()
+            RESOLVE.contact_update(con, cid, c.model_dump())
+            con.close()
+    except ValueError as exc:
+        raise HTTPException(422, "invalid " + str(exc))
+    return dict(ok=True)
+
+
+@app.delete("/contacts/{cid}")
+def remove_contact(cid: int):
+    with _lock:
+        con = db()
+        RESOLVE.contact_delete(con, cid)
+        con.close()
+    return dict(ok=True)
+
+
+@app.get("/faults")
+def list_faults():
+    """Active issues: the existing maintenance queue + their KB card, ticket stage and matching service contacts."""
+    items = _all_fault_items()
+    with _lock:
+        con = db()
+        out = [_fault_view(i, con) for i in items]
+        con.close()
+    out.sort(key=lambda f: (f["ticket"] is not None and f["ticket"]["stage"] == "resolved", -(f["score"] or 0)))
+    return out
+
+
+@app.get("/faults/{fid}")
+def get_fault(fid: str):
+    it = _find_fault(fid)
+    with _lock:
+        con = db()
+        v = _fault_view(it, con)
+        con.close()
+    return v
+
+
+@app.post("/faults/{fid}/ticket")
+def fault_ticket(fid: str):
+    it = _find_fault(fid)
+    snap = {k: it.get(k) for k in ("key", "kind", "source", "node", "severity", "minutes_ago", "inr_day", "evidence_strength", "loss_pct", "conf", "avg_ma", "n_blocks", "n_nodes", "locality", "score", "category")}
+    snap["status"] = it.get("status")
+    with _lock:
+        con = db()
+        t = RESOLVE.ticket_get(con, key=it["key"])
+        if not t or t["stage"] == "resolved":
+            t = RESOLVE.ticket_create(con, it["key"], it["node"], it["kind"])
+            con.execute("UPDATE tickets SET snapshot=? WHERE id=?", (_json.dumps(snap), t["id"]))
+            con.commit()
+            t = RESOLVE.ticket_get(con, tid=t["id"])
+        con.close()
+    return t
+
+
+@app.get("/faults/{fid}/draft")
+def fault_draft(fid: str, recipient: Optional[str] = None, contact_id: Optional[int] = None, lang: Optional[str] = None):
+    """A DRAFT only: recipient, subject and body for the person's own mail app. SuryaNidaan never sends it."""
+    lg = _lang(lang)
+    it = _find_fault(fid)
+    kb = KB.entry(KB.id_for_kind(it["kind"]))
+    rec = recipient or kb["service_category"]
+    with _lock:
+        con = db()
+        c = next((x for x in RESOLVE.contacts(con) if x["id"] == contact_id), None) if contact_id else None
+        t = RESOLVE.ticket_get(con, key=it["key"])
+        con.close()
+    return RESOLVE.draft(lg, rec, _draft_ctx(it, lg, t["report_id"] if t else None), c)
+
+
+@app.get("/report/{fid}", response_class=HTMLResponse)
+def fault_report(fid: str, recipient: str = "technician", lang: Optional[str] = None):
+    """Print-ready A4 HTML report (use the browser's Save as PDF). Opening it advances the ticket to 'report generated'."""
+    if recipient not in KB.recipients():
+        raise HTTPException(422, "recipient must be one of %s" % KB.recipients())
+    lg = _lang(lang)
+    it = _find_fault(fid)
+    ev = _fault_evidence(it)
+    now = time.time()
+    with _lock:
+        con = db()
+        t = RESOLVE.ticket_get(con, key=it["key"])
+        con.close()
+    if not t:
+        t = fault_ticket(fid)
+    with _lock:
+        con = db()
+        rid = RESOLVE.new_report_id(con)
+        con.execute("INSERT INTO reports (id, ts, fault_id, fault_key, ticket_id, recipient, lang, snapshot) VALUES (?,?,?,?,?,?,?,?)",
+                    (rid, now, fid, it["key"], t["id"], recipient, lg, _json.dumps(dict(evidence=ev, item=dict(node=it["node"], kind=it["kind"], loss_pct=it.get("loss_pct"))), default=str)))
+        if t["stage"] in ("detected", "reopened"):
+            RESOLVE.set_stage(con, t["id"], "report_generated", "report %s for %s" % (rid, recipient), report_id=rid)
+        else:
+            con.execute("UPDATE tickets SET report_id=? WHERE id=?", (rid, t["id"]))
+        con.commit()
+        t = RESOLVE.ticket_get(con, tid=t["id"])
+        con.close()
+    fault = dict(fault_id=fid, node=it["node"], location=_loc(it), kb=KB.id_for_kind(it["kind"]), card=it["card"])
+    fault["draft"] = RESOLVE.draft(lg, recipient, _draft_ctx(it, lg, rid), None)
+    return HTMLResponse(REPORT.build(lg, recipient, fault, ev, rid, now, t))
+
+
+@app.get("/reports")
+def list_reports():
+    with _lock:
+        con = db()
+        out = RESOLVE.reports(con)
+        con.close()
+    return out
+
+
+class StageReq(BaseModel):
+    stage: str
+    note: str = ""
+    contact_id: Optional[int] = None
+
+
+@app.post("/tickets/{tid}/stage")
+def ticket_stage(tid: int, s: StageReq):
+    """Manual status change with history. Syncs the maintenance-queue status. 'resolved' here is NOT 'verified'."""
+    with _lock:
+        con = db()
+        t = RESOLVE.ticket_get(con, tid=tid)
+        if not t:
+            con.close()
+            raise HTTPException(404, "unknown ticket")
+        try:
+            RESOLVE.set_stage(con, tid, s.stage, s.note, contact_id=s.contact_id, verified=0 if s.stage in ("reopened", "resolved") else None,
+                              verify=False if s.stage in ("reopened", "inspection", "contacted") else None)
+        except ValueError:
+            con.close()
+            raise HTTPException(422, "unknown stage")
+        if t["fault_key"]:
+            MAINT.set_status(con, t["fault_key"], RESOLVE.STAGE_TO_MAINT[s.stage], "ticket " + s.stage + (": " + s.note if s.note else ""))
+        t = RESOLVE.ticket_get(con, tid=tid)
+        con.close()
+    return t
+
+
+@app.get("/tickets/{tid}/history")
+def ticket_history(tid: int):
+    with _lock:
+        con = db()
+        h = RESOLVE.history(con, tid)
+        con.close()
+    return h
+
+
+@app.get("/resolution/history")
+def resolution_history(limit: int = 60):
+    with _lock:
+        con = db()
+        h = RESOLVE.history(con, None, limit)
+        con.close()
+    return h
+
+
+def _live_state_now(now):
+    """Committed live state and the 2 s average current. Deliberately takes NO lock: callers already hold the global lock."""
+    snap = _tracker.snapshot()
+    try:
+        rows = list(_telemetry.get(NODE, ()))
+    except RuntimeError:                      # the deque changed while it was being copied: take the copy again
+        rows = list(_telemetry.get(NODE, ()))
+    cfg = livemode.load_cfg()
+    avg, _ = livemode.window_avg(rows, now, cfg["avg_s"]) if rows and now - rows[-1]["ts"] <= TWIN.OFFLINE_S else (None, 0)
+    return snap["committed"], avg
+
+
+def _verify_decide(t, now):
+    v = t["verify"]
+    state, avg = _live_state_now(now)
+    return RESOLVE.verify_decision(v, now, state, _live_info.get("green_since"), avg)
+
+
+def _verify_finish(con, t, status, info, now):
+    if status == "verified":
+        RESOLVE.set_stage(con, t["id"], "resolved", "Verified by measurement: 2 s average current %.2f mA (was %.2f mA), normal (green) for %d s" % (info["after_ma"] or 0, info["before_ma"] or 0, info["green_s"]),
+                          verified=1, verify=dict(t["verify"], status="verified", **info))
+        if t["fault_key"]:
+            MAINT.set_status(con, t["fault_key"], "resolved", "verified by measurement")
+    elif status == "not_verified" and (t["verify"] or {}).get("status") != "not_verified":
+        RESOLVE.set_stage(con, t["id"], "awaiting_verification", "Not verified: the output did not stay normal (green) for %d s within %d s. Further inspection is recommended." % (info["green_s"], info["window_s"]),
+                          verify=dict(t["verify"], status="not_verified", **info))
+
+
+def _verify_tick(avg, now):
+    """Called by the watcher: finish live verifications as soon as the current has stayed in the normal (green) state long enough."""
+    try:
+        with _lock:
+            con = db()
+            ids = [r[0] for r in con.execute("SELECT id FROM tickets WHERE stage='awaiting_verification' AND verify_json LIKE '%\"mode\": \"live\"%' AND verify_json NOT LIKE '%not_verified%'")]
+            for tid in ids:
+                t = RESOLVE.ticket_get(con, tid=tid)
+                if t and t["verify"] and t["verify"].get("status") in (None, "waiting"):
+                    st, info = _verify_decide(t, now)
+                    if st != "waiting":
+                        _verify_finish(con, t, st, info, now)
+            con.close()
+    except Exception:
+        pass
+
+
+@app.post("/tickets/{tid}/verify")
+def start_verify(tid: int):
+    """Live SN-001: compare the 2 s average current before and after the fix; 'Verified by measurement' needs green for 10 s.
+    Simulated faults: re-measure on a healthy simulated node, labelled SIMULATED."""
+    now = time.time()
+    cfg = livemode.load_cfg()
+    with _lock:
+        con = db()
+        t = RESOLVE.ticket_get(con, tid=tid)
+        if not t:
+            con.close()
+            raise HTTPException(404, "unknown ticket")
+        if t["fault_key"] == LIVE_KEY:
+            if cfg["mode"] != "simple":
+                con.close()
+                raise HTTPException(409, "live verification needs the simple live mode")
+            _, avg = _live_state_now(now)
+            snap = con.execute("SELECT snapshot FROM tickets WHERE id=?", (tid,)).fetchone()[0]
+            before = (_json.loads(snap) if snap else {}).get("avg_ma")              # the 2 s average recorded when the fault was ticketed
+            v = dict(mode="live", started=now, before_ma=before if before is not None else (_live_info.get("avg") if _live_info.get("state") else avg),
+                     green_s=cfg.get("verify_green_s", 10), window_s=cfg.get("verify_window_s", 120), status="waiting")
+            RESOLVE.set_stage(con, tid, "awaiting_verification", "verification started: waiting for the output to stay normal (green) for %d s" % v["green_s"], verify=v)
+            if t["fault_key"]:
+                MAINT.set_status(con, t["fault_key"], "inspection", "awaiting verification")
+            out = dict(mode="live", status="waiting")
+        else:
+            rng = np.random.default_rng(int(now) % 100000)
+            s_ = S.make_scenario("healthy", rng)
+            res = engine.diagnose({**S.simulate(s_, rng), "node_id": t["site"], "source": "sim", "seq": 0, "fw": "verify-sim"}, kwp=C.DEFAULT_KWP, yld=C.DEFAULT_YIELD, tariff=C.DEFAULT_TARIFF)
+            ok = res["loss_pct"] < 5.0
+            v = dict(mode="sim", status="verified_sim" if ok else "not_verified", after_loss_pct=res["loss_pct"])
+            if ok:
+                RESOLVE.set_stage(con, tid, "resolved", "Verified in SIMULATION: simulated re-measurement shows %.1f%% loss (SIMULATED, not a real measurement)" % res["loss_pct"], verified=2, verify=v)
+                if t["fault_key"]:
+                    MAINT.set_status(con, t["fault_key"], "resolved", "verified in simulation")
+            else:
+                RESOLVE.set_stage(con, tid, "awaiting_verification", "Not verified in simulation (%.1f%% loss). Further inspection is recommended." % res["loss_pct"], verify=v)
+            out = v
+        con.close()
+    return out
+
+
+@app.get("/tickets/{tid}/verify")
+def verify_status(tid: int):
+    now = time.time()
+    with _lock:
+        con = db()
+        t = RESOLVE.ticket_get(con, tid=tid)
+        con.close()
+    if not t or not t["verify"]:
+        return dict(status="none")
+    v = t["verify"]
+    if v.get("mode") == "live" and v.get("status") in (None, "waiting"):
+        st, info = _verify_decide(t, now)
+        return dict(mode="live", status=st, **info)
+    return v
 
 
 # Simulated fleet: approximate coordinates of Bengaluru localities (for the schematic site map only).

@@ -68,6 +68,22 @@ Telegram alerts (optional): message @BotFather, `/newbot`, copy the token, send 
 | `virtual_node.py` | Posts SIMULATED sweeps exactly like the ESP32 will |
 | `serial_bridge.py` | Reads the ESP32's INA219 Serial printouts over USB and POSTs them to `/telemetry` (shown as the "Live sensor" strip in Live node mode). Close the Arduino Serial Monitor first. |
 
+## Fault resolution and reports (installer console, tab "Fault resolution")
+
+Detect, understand, contact, report, track, verify, all in one view and built on the EXISTING alerts, service queue and tickets.
+`sn/fault_kb.json` is the knowledge base: every fault (soiling, partial shade, bypass diode, loose connection, node offline,
+unexpected readings, shade / light blocked, zone issue) has a description, possible causes, what would confirm it, recommended steps,
+the service category, a follow-up check, safety notes and an evidence level (CONFIRMED / SUSPECTED / POSSIBLE SENSOR ERROR), so no alert
+exists without a next step. Bypass-diode and loose-connection cards state that the current sensor alone cannot confirm them, and no card
+ever tells the owner to touch wiring. The **service directory starts empty** (nothing is invented); contacts are ranked by category then
+service area, and "No registered service provider for this issue" offers an Add button. "Contact <category>" produces a DRAFT (recipient,
+subject, body, `mailto:` / `tel:` links, Copy): SuryaNidaan never sends anything. `GET /report/{fault_id}?recipient=technician|cleaning|
+manufacturer|site_manager|authority` opens a print-ready A4 report (browser Save as PDF); the authority version only describes
+observations and requests an investigation. Tickets move Detected, Report generated, Contacted, Inspection / repair, Awaiting
+verification, Resolved (or Reopened) with history. "Verified by measurement" is only set when the live 2 s average current is back in
+the normal (green) state for 10 s (`verify_green_s`, `verify_window_s` in `data/live_thresholds.json`); otherwise it recommends further
+inspection. Simulated faults can only be "Verified in simulation (SIMULATED)".
+
 ## Solar farm planner (installer console, tab "Solar farm planner")
 
 **PLANNING / SIMULATED, not a measurement and not GPS.** Enter a farm size, block grid, node limits and LoRa range (all defaults are
