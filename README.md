@@ -1,3 +1,32 @@
+# SuryaNidaan
+
+**SuryaNidaan** (सूर्यनिदान, "sun diagnosis") is AI diagnostics for rooftop solar. A small node (ESP32 + INA219) measures a
+panel's current and voltage; the software tells the owner, in plain language, whether the panel is producing normally, partly shaded
+or blocked, explains why, estimates the money lost, and sends a Telegram alert in English, Hindi or Kannada. For installers there is a
+full I-V-curve diagnosis (healthy, dust, partial shade, loose connector, failed bypass diode) with a rules-vs-AI comparison.
+
+**Team:** SuryaNidaan, COLOSSUS 3.0 hackathon, Hardware/IoT track. The prototype is a low-voltage bench demonstrator (under 25 V);
+it is not designed for live rooftop strings.
+
+**Simulated data is always labelled.** Anything that comes from the physics twin or the test bench carries the SIMULATED tag
+(payload `source="sim"`); real sensor readings carry REAL, and model-drawn curves PHYSICS MODEL. Simulation is never presented as
+measurement, and no accuracy is claimed for real data (only simulated test sets are scored).
+
+## Quick start
+
+```
+pip install -r requirements.txt       # Python 3.10+
+python train.py                       # trains the models (models/*.joblib are not in git, this regenerates them)
+uvicorn api:app --host 0.0.0.0 --port 8000
+```
+
+Then open **http://localhost:8000/** (owner view: digital twin and health) and **http://localhost:8000/console** (installer view).
+With no hardware, use the Simulation switch on the owner page, or `python virtual_node.py` (posts SIMULATED sweeps).
+With the ESP32 plugged in over USB, also run `python serial_bridge.py`. Telegram alerts are optional (`python setup_telegram.py`;
+the bot token is stored in `telegram_config.json`, which is git-ignored). More detail below.
+
+---
+
 # SuryaNidaan: AI diagnostics for rooftop solar (COLOSSUS 3.0)
 
 Reads a solar panel's I-V curve, names the fault (dust, shade, loose connector, failed bypass diode),
