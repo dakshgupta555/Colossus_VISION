@@ -25,6 +25,10 @@ With no hardware, use the Simulation switch on the owner page, or `python virtua
 With the ESP32 plugged in over USB, also run `python serial_bridge.py`. Telegram alerts are optional (`python setup_telegram.py`;
 the bot token is stored in `telegram_config.json`, which is git-ignored). More detail below.
 
+**Firmware:** the ESP32 sketch (INA219 + OLED, prints readings over Serial at 115200 baud) is in `firmware/colossus_esp32/`;
+its wiring and setup notes are in [`firmware/README.md`](firmware/README.md). `serial_bridge.py` reads that Serial output.
+Licensed under MIT (see `LICENSE`).
+
 ---
 
 # SuryaNidaan: AI diagnostics for rooftop solar (COLOSSUS 3.0)
