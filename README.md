@@ -54,7 +54,18 @@ The real-data classifier (`sn/realdx.py`, trained on pvlib simulations of our si
 keeps all its assumptions (priors, time-pattern likelihood ratios) in one config block and claims no accuracy for real data.
 `serial_bridge.py` also parses LDR lines (`LDR1: 2345`, `LDR: 1200, 1800`) and `Temperature: 28.5 C` if the node prints them.
 
-## Real bench (one panel, INA219, USB serial)
+## Live mode (simple, no baseline, no jumper)
+
+The default REAL live view needs nothing but the torch and the wiring as it is. `data/live_thresholds.json` holds every number:
+the 2 s average of the panel current is >= 0.35 mA green (producing normally), 0.20 to 0.35 amber (partly shaded), below 0.20 red
+(shaded); a new state must hold 1.5 s before it is shown; drop % = 1 - current / 0.5 mA (approximate, compared with full torch light).
+Money uses `money()` with that drop and is labelled PROVISIONAL. Telegram alerts fire when the state goes amber or red and when it
+returns to green (max one per 30 s per state). Response time is about 3.8 s with the 1.5 s hold on a 1 reading/s stream; lower
+`hold_s` (0.5 gives about 2-3 s) for faster. Try it: shine the torch on the panel, cover half, then all, then take your hand away.
+
+The baseline mode below is kept (Advanced section; set `"mode": "baseline"` in that file to use it for the live view).
+
+## Real bench, baseline mode (one panel, INA219, USB serial)
 
 No firmware change: `serial_bridge.py` only reads what the ESP32 already prints. Wiring: a jumper from INA219 VIN- to
 panel minus = short circuit (V ~ 0, I = Isc); jumper removed = open circuit (I ~ 0, V = Voc).

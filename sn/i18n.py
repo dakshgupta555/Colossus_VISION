@@ -1207,6 +1207,124 @@ EN["perf.mpp"] = "at the maximum-power point of the simulated sweep"
 HI["perf.mpp"] = "सिम्युलेटेड स्वीप के अधिकतम-पावर बिंदु पर"
 KN["perf.mpp"] = "ಸಿಮ್ಯುಲೇಟೆಡ್ ಸ್ವೀಪ್‌ನ ಗರಿಷ್ಠ-ಪವರ್ ಬಿಂದುವಿನಲ್ಲಿ"
 
+
+# ---- Simple REAL live mode (no baseline, no jumper)
+EN.update({
+ "live.s.green": "Producing normally",
+ "live.s.amber": "Partly shaded",
+ "live.s.red": "Shaded: light is blocked",
+ "hero.simple.healthy": "The light is reaching the panel and the current is normal.",
+ "hero.simple.attention": "The panel is getting only part of the light.",
+ "hero.simple.critical": "Almost no light is reaching the panel.",
+ "simple.ring": "Light",
+ "simple.drop": "About {x}% below full torch light (approximate, compared with {full} mA).",
+ "simple.guide.title": "Try it",
+ "simple.guide": "Shine the torch on the panel. Cover half of it, then all of it, then take your hand away.",
+ "simple.light.sub": "current as % of full torch light",
+ "simple.cur.sub": "2 second average",
+ "simple.settling": "changing…",
+ "twin.cap.simple": "Whole panel shown: one sensor can't tell which cells are shaded.",
+ "dx.simple.sub": "What the reading says: is the light reaching the panel clear, or is something covering it?",
+ "dx.simple.clear": "Clear",
+ "dx.simple.covered": "Shade or something covering the panel",
+ "dx.simple.cap": "Approximate: share of full torch light reaching the panel, and the share blocked.",
+ "dx.simple.note": "Telling shade from dust or a loose connector needs a full I-V curve; try the simulation to see that.",
+ "act.simple.green": "No action needed.",
+ "act.simple.amber": "Look for what is shading part of the panel (a shadow, a hand, an object) and move it away.",
+ "act.simple.red": "Something is blocking the light. Remove it, or check that the light source is on.",
+ "simple.money.note": "Approximate: compared with full torch light ({full} mA).",
+ "perf.session.simple": "This session: light reaching the panel (% of full torch light)",
+ "adv.baseline": "Baseline mode (advanced)",
+ "adv.baseline.note": "The simple live view needs no baseline. Baseline mode compares Isc and Voc with a healthy reference and gives the full probabilistic diagnosis. To use it for the live view, set \"mode\" to \"baseline\" in data/live_thresholds.json.",
+ "live.adv": "Advanced: baseline mode (jumper, baseline, Isc and Voc curves)",
+ "live.simple.title": "Live status",
+ "tg.live.green": "SuryaNidaan {node}: back to normal. The panel is producing normally (current {ma} mA).",
+ "tg.live.amber": "SuryaNidaan {node}: partly shaded. Current {ma} mA, about {drop}% below full torch light (about ₹{inr} a day at {kwp} kWp, approximate). Check what is covering the panel.",
+ "tg.live.red": "SuryaNidaan {node}: SHADED, light is blocked. Current {ma} mA, about {drop}% below full torch light (about ₹{inr} a day at {kwp} kWp, approximate). Check what is covering the panel."
+})
+HI.update({
+ "live.s.green": "सामान्य उत्पादन",
+ "live.s.amber": "आंशिक छाया",
+ "live.s.red": "छाया: रोशनी रुकी है",
+ "hero.simple.healthy": "रोशनी पैनल तक पहुंच रही है और करंट सामान्य है।",
+ "hero.simple.attention": "पैनल को रोशनी का केवल एक हिस्सा मिल रहा है।",
+ "hero.simple.critical": "पैनल तक लगभग कोई रोशनी नहीं पहुंच रही।",
+ "simple.ring": "रोशनी",
+ "simple.drop": "पूरी टॉर्च रोशनी से लगभग {x}% कम (अनुमान, {full} mA से तुलना)।",
+ "simple.guide.title": "आज़माएं",
+ "simple.guide": "पैनल पर टॉर्च की रोशनी डालें। पहले आधा ढकें, फिर पूरा, फिर हाथ हटा लें।",
+ "simple.light.sub": "करंट, पूरी टॉर्च रोशनी का %",
+ "simple.cur.sub": "2 सेकंड का औसत",
+ "simple.settling": "बदल रहा है…",
+ "twin.cap.simple": "पूरा पैनल दिख रहा है: एक सेंसर यह नहीं बता सकता कि कौन से सेल छाया में हैं।",
+ "dx.simple.sub": "रीडिंग क्या कहती है: पैनल तक रोशनी साफ़ पहुंच रही है, या कुछ उसे ढक रहा है?",
+ "dx.simple.clear": "साफ़",
+ "dx.simple.covered": "छाया या पैनल को ढकती कोई चीज़",
+ "dx.simple.cap": "अनुमान: पैनल तक पहुंचती पूरी टॉर्च रोशनी का हिस्सा, और रुका हुआ हिस्सा।",
+ "dx.simple.note": "छाया को धूल या ढीले कनेक्टर से अलग पहचानने के लिए पूरा I-V कर्व चाहिए; इसे देखने के लिए सिमुलेशन आज़माएं।",
+ "act.simple.green": "किसी कार्रवाई की ज़रूरत नहीं।",
+ "act.simple.amber": "देखें कि पैनल के कुछ हिस्से पर छाया किसकी है (परछाईं, हाथ, कोई वस्तु) और उसे हटाएं।",
+ "act.simple.red": "कुछ रोशनी रोक रहा है। उसे हटाएं, या जांचें कि रोशनी का स्रोत चालू है।",
+ "simple.money.note": "अनुमान: पूरी टॉर्च रोशनी ({full} mA) से तुलना।",
+ "perf.session.simple": "यह सत्र: पैनल तक पहुंचती रोशनी (पूरी टॉर्च रोशनी का %)",
+ "adv.baseline": "बेसलाइन मोड (एडवांस्ड)",
+ "adv.baseline.note": "सरल लाइव व्यू को बेसलाइन नहीं चाहिए। बेसलाइन मोड Isc और Voc की तुलना स्वस्थ संदर्भ से करता है और पूरा प्रायिकता-आधारित निदान देता है। इसे लाइव व्यू के लिए इस्तेमाल करने को data/live_thresholds.json में \"mode\" को \"baseline\" करें।",
+ "live.adv": "एडवांस्ड: बेसलाइन मोड (जम्पर, बेसलाइन, Isc और Voc कर्व)",
+ "live.simple.title": "लाइव स्थिति",
+ "tg.live.green": "सूर्यनिदान {node}: फिर सामान्य। पैनल सामान्य उत्पादन कर रहा है (करंट {ma} mA)।",
+ "tg.live.amber": "सूर्यनिदान {node}: आंशिक छाया। करंट {ma} mA, पूरी टॉर्च रोशनी से लगभग {drop}% कम ({kwp} kWp पर रोज़ लगभग ₹{inr}, अनुमान)। देखें पैनल को क्या ढक रहा है।",
+ "tg.live.red": "सूर्यनिदान {node}: छाया, रोशनी रुकी है। करंट {ma} mA, पूरी टॉर्च रोशनी से लगभग {drop}% कम ({kwp} kWp पर रोज़ लगभग ₹{inr}, अनुमान)। देखें पैनल को क्या ढक रहा है।"
+})
+KN.update({
+ "live.s.green": "ಸಾಮಾನ್ಯ ಉತ್ಪಾದನೆ",
+ "live.s.amber": "ಭಾಗಶಃ ನೆರಳು",
+ "live.s.red": "ನೆರಳು: ಬೆಳಕು ತಡೆಯಲ್ಪಟ್ಟಿದೆ",
+ "hero.simple.healthy": "ಬೆಳಕು ಪ್ಯಾನೆಲ್‌ಗೆ ತಲುಪುತ್ತಿದೆ ಮತ್ತು ಕರೆಂಟ್ ಸಾಮಾನ್ಯವಾಗಿದೆ.",
+ "hero.simple.attention": "ಪ್ಯಾನೆಲ್‌ಗೆ ಬೆಳಕಿನ ಒಂದು ಭಾಗ ಮಾತ್ರ ಸಿಗುತ್ತಿದೆ.",
+ "hero.simple.critical": "ಪ್ಯಾನೆಲ್‌ಗೆ ಬಹುತೇಕ ಬೆಳಕು ತಲುಪುತ್ತಿಲ್ಲ.",
+ "simple.ring": "ಬೆಳಕು",
+ "simple.drop": "ಪೂರ್ಣ ಟಾರ್ಚ್ ಬೆಳಕಿಗಿಂತ ಸುಮಾರು {x}% ಕಡಿಮೆ (ಅಂದಾಜು, {full} mA ಜೊತೆ ಹೋಲಿಕೆ).",
+ "simple.guide.title": "ಪ್ರಯತ್ನಿಸಿ",
+ "simple.guide": "ಪ್ಯಾನೆಲ್ ಮೇಲೆ ಟಾರ್ಚ್ ಬೆಳಕು ಹಾಯಿಸಿ. ಮೊದಲು ಅರ್ಧ ಮುಚ್ಚಿ, ನಂತರ ಪೂರ್ತಿ, ನಂತರ ಕೈ ತೆಗೆಯಿರಿ.",
+ "simple.light.sub": "ಕರೆಂಟ್, ಪೂರ್ಣ ಟಾರ್ಚ್ ಬೆಳಕಿನ %",
+ "simple.cur.sub": "2 ಸೆಕೆಂಡ್ ಸರಾಸರಿ",
+ "simple.settling": "ಬದಲಾಗುತ್ತಿದೆ…",
+ "twin.cap.simple": "ಇಡೀ ಪ್ಯಾನೆಲ್ ತೋರಿಸಲಾಗಿದೆ: ಯಾವ ಸೆಲ್‌ಗಳು ನೆರಳಿನಲ್ಲಿವೆ ಎಂದು ಒಂದು ಸೆನ್ಸರ್ ಹೇಳಲಾರದು.",
+ "dx.simple.sub": "ರೀಡಿಂಗ್ ಏನು ಹೇಳುತ್ತದೆ: ಪ್ಯಾನೆಲ್‌ಗೆ ಬೆಳಕು ಸ್ಪಷ್ಟವಾಗಿ ತಲುಪುತ್ತಿದೆಯೇ, ಅಥವಾ ಏನಾದರೂ ಮುಚ್ಚಿದೆಯೇ?",
+ "dx.simple.clear": "ಸ್ಪಷ್ಟ",
+ "dx.simple.covered": "ನೆರಳು ಅಥವಾ ಪ್ಯಾನೆಲ್ ಮುಚ್ಚುವ ವಸ್ತು",
+ "dx.simple.cap": "ಅಂದಾಜು: ಪ್ಯಾನೆಲ್‌ಗೆ ತಲುಪುವ ಪೂರ್ಣ ಟಾರ್ಚ್ ಬೆಳಕಿನ ಪಾಲು ಮತ್ತು ತಡೆಯಲ್ಪಟ್ಟ ಪಾಲು.",
+ "dx.simple.note": "ನೆರಳನ್ನು ಧೂಳು ಅಥವಾ ಸಡಿಲ ಕನೆಕ್ಟರ್‌ನಿಂದ ಬೇರ್ಪಡಿಸಲು ಪೂರ್ಣ I-V ಕರ್ವ್ ಬೇಕು; ಅದನ್ನು ನೋಡಲು ಸಿಮ್ಯುಲೇಶನ್ ಪ್ರಯತ್ನಿಸಿ.",
+ "act.simple.green": "ಯಾವುದೇ ಕ್ರಮ ಬೇಕಿಲ್ಲ.",
+ "act.simple.amber": "ಪ್ಯಾನೆಲ್‌ನ ಒಂದು ಭಾಗಕ್ಕೆ ನೆರಳು ಬೀಳಿಸುತ್ತಿರುವುದನ್ನು (ನೆರಳು, ಕೈ, ವಸ್ತು) ಹುಡುಕಿ ಮತ್ತು ಸರಿಸಿ.",
+ "act.simple.red": "ಏನೋ ಬೆಳಕನ್ನು ತಡೆಯುತ್ತಿದೆ. ಅದನ್ನು ತೆಗೆಯಿರಿ, ಅಥವಾ ಬೆಳಕಿನ ಮೂಲ ಆನ್ ಆಗಿದೆಯೇ ಪರಿಶೀಲಿಸಿ.",
+ "simple.money.note": "ಅಂದಾಜು: ಪೂರ್ಣ ಟಾರ್ಚ್ ಬೆಳಕಿನ ({full} mA) ಜೊತೆ ಹೋಲಿಕೆ.",
+ "perf.session.simple": "ಈ ಸೆಶನ್: ಪ್ಯಾನೆಲ್‌ಗೆ ತಲುಪುವ ಬೆಳಕು (ಪೂರ್ಣ ಟಾರ್ಚ್ ಬೆಳಕಿನ %)",
+ "adv.baseline": "ಬೇಸ್‌ಲೈನ್ ಮೋಡ್ (ಅಡ್ವಾನ್ಸ್ಡ್)",
+ "adv.baseline.note": "ಸರಳ ಲೈವ್ ನೋಟಕ್ಕೆ ಬೇಸ್‌ಲೈನ್ ಬೇಕಿಲ್ಲ. ಬೇಸ್‌ಲೈನ್ ಮೋಡ್ Isc ಮತ್ತು Voc ಅನ್ನು ಆರೋಗ್ಯಕರ ಉಲ್ಲೇಖದೊಂದಿಗೆ ಹೋಲಿಸಿ ಪೂರ್ಣ ಸಂಭವನೀಯತೆ ರೋಗನಿರ್ಣಯ ನೀಡುತ್ತದೆ. ಲೈವ್ ನೋಟಕ್ಕೆ ಇದನ್ನು ಬಳಸಲು data/live_thresholds.json ನಲ್ಲಿ \"mode\" ಅನ್ನು \"baseline\" ಗೆ ಹೊಂದಿಸಿ.",
+ "live.adv": "ಅಡ್ವಾನ್ಸ್ಡ್: ಬೇಸ್‌ಲೈನ್ ಮೋಡ್ (ಜಂಪರ್, ಬೇಸ್‌ಲೈನ್, Isc ಮತ್ತು Voc ಕರ್ವ್‌ಗಳು)",
+ "live.simple.title": "ಲೈವ್ ಸ್ಥಿತಿ",
+ "tg.live.green": "ಸೂರ್ಯನಿದಾನ {node}: ಮತ್ತೆ ಸಾಮಾನ್ಯ. ಪ್ಯಾನೆಲ್ ಸಾಮಾನ್ಯವಾಗಿ ಉತ್ಪಾದಿಸುತ್ತಿದೆ (ಕರೆಂಟ್ {ma} mA).",
+ "tg.live.amber": "ಸೂರ್ಯನಿದಾನ {node}: ಭಾಗಶಃ ನೆರಳು. ಕರೆಂಟ್ {ma} mA, ಪೂರ್ಣ ಟಾರ್ಚ್ ಬೆಳಕಿಗಿಂತ ಸುಮಾರು {drop}% ಕಡಿಮೆ ({kwp} kWp ನಲ್ಲಿ ದಿನಕ್ಕೆ ಸುಮಾರು ₹{inr}, ಅಂದಾಜು). ಪ್ಯಾನೆಲ್ ಅನ್ನು ಏನು ಮುಚ್ಚಿದೆ ಎಂದು ನೋಡಿ.",
+ "tg.live.red": "ಸೂರ್ಯನಿದಾನ {node}: ನೆರಳು, ಬೆಳಕು ತಡೆಯಲ್ಪಟ್ಟಿದೆ. ಕರೆಂಟ್ {ma} mA, ಪೂರ್ಣ ಟಾರ್ಚ್ ಬೆಳಕಿಗಿಂತ ಸುಮಾರು {drop}% ಕಡಿಮೆ ({kwp} kWp ನಲ್ಲಿ ದಿನಕ್ಕೆ ಸುಮಾರು ₹{inr}, ಅಂದಾಜು). ಪ್ಯಾನೆಲ್ ಅನ್ನು ಏನು ಮುಚ್ಚಿದೆ ಎಂದು ನೋಡಿ."
+})
+
+
+EN["live.s.wait"] = "Waiting for the next reading…"
+EN["hero.wait"] = "The last reading is more than 2 seconds old. Waiting for the next one; no state is shown until it arrives."
+HI["live.s.wait"] = "अगली रीडिंग का इंतज़ार…"
+HI["hero.wait"] = "आखिरी रीडिंग 2 सेकंड से पुरानी है। अगली का इंतज़ार है; वह आने तक कोई स्थिति नहीं दिखाई जाती।"
+KN["live.s.wait"] = "ಮುಂದಿನ ರೀಡಿಂಗ್‌ಗಾಗಿ ಕಾಯುತ್ತಿದೆ…"
+KN["hero.wait"] = "ಕೊನೆಯ ರೀಡಿಂಗ್ 2 ಸೆಕೆಂಡ್‌ಗಿಂತ ಹಳೆಯದು. ಮುಂದಿನದಕ್ಕಾಗಿ ಕಾಯುತ್ತಿದೆ; ಅದು ಬರುವವರೆಗೆ ಯಾವುದೇ ಸ್ಥಿತಿ ತೋರಿಸುವುದಿಲ್ಲ."
+
+
+EN["simple.drop.k"] = "Drop vs full torch light"
+EN["simple.drop.sub"] = "below full torch light (approximate, {full} mA)"
+HI["simple.drop.k"] = "पूरी टॉर्च रोशनी से कमी"
+HI["simple.drop.sub"] = "पूरी टॉर्च रोशनी से कम (अनुमान, {full} mA)"
+KN["simple.drop.k"] = "ಪೂರ್ಣ ಟಾರ್ಚ್ ಬೆಳಕಿಗಿಂತ ಇಳಿಕೆ"
+KN["simple.drop.sub"] = "ಪೂರ್ಣ ಟಾರ್ಚ್ ಬೆಳಕಿಗಿಂತ ಕಡಿಮೆ (ಅಂದಾಜು, {full} mA)"
+
 STRINGS = {"en": EN, "hi": HI, "kn": KN}
 
 

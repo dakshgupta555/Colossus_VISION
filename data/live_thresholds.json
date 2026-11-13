@@ -1,0 +1,10 @@
+{
+  "_note": "Simple REAL live mode. current = mean of the panel current over avg_s seconds. >= green_ma: green, amber_ma..green_ma: amber, below amber_ma: red. A new state must hold hold_s seconds before it is shown. drop % = 1 - current/full_ma. Set mode to \"baseline\" to bring back the jumper/baseline live mode (the code is kept).",
+  "mode": "simple",
+  "green_ma": 0.35,
+  "amber_ma": 0.20,
+  "full_ma": 0.5,
+  "avg_s": 2.0,
+  "hold_s": 1.5,
+  "alert_gap_s": 30
+}

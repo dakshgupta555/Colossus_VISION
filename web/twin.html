@@ -163,7 +163,7 @@ pre{background:#F5F7FB;border:1px solid var(--line2);border-radius:8px;padding:1
     <div id="heroInfo">
       <div class="cond">
         <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#EDF0F5" stroke-width="11"/><circle id="ringArc" cx="60" cy="60" r="52" fill="none" stroke="#8A94A0" stroke-width="11" stroke-linecap="round" stroke-dasharray="0 327" style="transition:stroke-dasharray .6s,stroke .6s"/></svg>
-          <div class="v"><div><b class="num" id="scoreNum">-</b><br><span data-t="score.title"></span></div></div></div>
+          <div class="v"><div><b class="num" id="scoreNum">-</b><br><span id="scoreLbl" data-t="score.title"></span></div></div></div>
         <div>
           <div class="cw" id="condWord"></div>
           <div id="condSent" style="color:var(--ink2);margin-top:2px"></div>
@@ -171,6 +171,7 @@ pre{background:#F5F7FB;border:1px solid var(--line2);border-radius:8px;padding:1
         </div>
       </div>
       <div class="row" id="chips"></div>
+      <div id="guideBox" hidden class="card" style="background:#F7F9FD;padding:10px 12px"><b data-t="simple.guide.title"></b><div class="small" data-t="simple.guide" style="font-size:14px;color:var(--ink2)"></div></div>
       <div id="setupHint" hidden class="card" style="background:#F7F9FD;padding:10px 12px">
         <b data-t="live.guide.title"></b>
         <div class="small" style="margin:3px 0 6px"><span data-t="live.guide.1"></span><br><span data-t="live.guide.2"></span><br><span data-t="live.guide.3"></span></div>
@@ -183,9 +184,9 @@ pre{background:#F5F7FB;border:1px solid var(--line2);border-radius:8px;padding:1
       </dl>
       <div class="meters">
         <div class="meter"><div class="k"><span data-t="meter.quality"></span><span id="qNum">-</span></div><div class="bar2"><i id="qBar" style="width:0"></i></div></div>
-        <div class="meter"><div class="k"><span data-t="meter.certainty"></span><span id="cNum">-</span></div><div class="bar2"><i id="cBar" style="width:0"></i></div></div>
+        <div class="meter" id="certMeter"><div class="k"><span data-t="meter.certainty"></span><span id="cNum">-</span></div><div class="bar2"><i id="cBar" style="width:0"></i></div></div>
       </div>
-      <div><h3 data-t="factors.title"></h3><ul class="factors" id="factors"></ul></div>
+      <div id="factorsWrap"><h3 data-t="factors.title"></h3><ul class="factors" id="factors"></ul></div>
     </div>
   </section>
 
@@ -220,7 +221,7 @@ pre{background:#F5F7FB;border:1px solid var(--line2);border-radius:8px;padding:1
     <div id="liveCharts">
       <h3 data-t="perf.charts"></h3>
       <div id="chV"></div><div id="chI"></div><div id="chP"></div>
-      <h3 style="margin-top:10px" data-t="perf.session"></h3>
+      <h3 style="margin-top:10px" id="sessTitle" data-t="perf.session"></h3>
       <div id="chSession"></div>
     </div>
     <div id="simChart" hidden><h3 data-t="perf.sweep"></h3><div id="chSweep"></div></div>
@@ -233,6 +234,9 @@ pre{background:#F5F7FB;border:1px solid var(--line2);border-radius:8px;padding:1
     <div id="dxBody">
     <div class="bars" id="bars"></div>
     <p class="small" id="dxSpread" hidden data-t="dx.spread"></p>
+    <p class="small" id="dxCap" hidden data-t="dx.simple.cap"></p>
+    <p id="dxNote" hidden style="margin:8px 0 0;font-weight:600;color:var(--ink2)" data-t="dx.simple.note"></p>
+    <div id="dxDetail">
     <div class="two" style="margin-top:10px">
       <div><h3 data-t="dx.likely"></h3><div id="likely"></div></div>
       <div><h3 data-t="dx.others"></h3><div id="others"></div></div>
@@ -241,6 +245,7 @@ pre{background:#F5F7FB;border:1px solid var(--line2);border-radius:8px;padding:1
     <p class="small" style="margin:8px 0 0" data-t="cert.help"></p>
     <h2 style="margin-top:16px" data-t="cards.title"></h2>
     <div class="cards4" id="wcards"></div>
+    </div>
     </div>
   </section>
 
@@ -274,10 +279,7 @@ pre{background:#F5F7FB;border:1px solid var(--line2);border-radius:8px;padding:1
     <summary data-t="setup.title"></summary>
     <div class="setup3" style="margin-top:12px">
       <div>
-        <h3 data-t="base.title"></h3>
-        <p class="small" style="margin:0 0 6px"><span data-t="live.guide.1"></span><br><span data-t="live.guide.2"></span><br><span data-t="live.guide.3"></span></p>
-        <div class="row"><button class="btn dark" id="setBase2" data-t="live.base.btn"></button><span class="small" id="baseTxt"></span></div>
-        <h3 style="margin-top:16px" data-t="cal.title"></h3>
+        <h3 data-t="cal.title"></h3>
         <p class="small" style="margin:0 0 6px" data-t="cal.help"></p>
         <div class="row" style="margin-bottom:6px"><span class="small">Gain</span><b class="num" id="calGain">1</b><span class="small">Offset</span><b class="num" id="calOff">0</b><span id="calBadge"></span></div>
         <p class="small" style="margin:0 0 6px" id="calDate"></p>
@@ -308,6 +310,12 @@ pre{background:#F5F7FB;border:1px solid var(--line2);border-radius:8px;padding:1
     </div>
     <h3 style="margin-top:12px" data-t="adv.assume"></h3>
     <pre id="advAssume"></pre>
+    <div id="advBaseline" style="margin-top:14px;border-top:1px solid var(--line2);padding-top:10px">
+      <h3 data-t="adv.baseline"></h3>
+      <p class="small" style="margin:0 0 6px" data-t="adv.baseline.note"></p>
+      <p class="small" style="margin:0 0 6px"><span data-t="live.guide.1"></span><br><span data-t="live.guide.2"></span><br><span data-t="live.guide.3"></span></p>
+      <div class="row"><button class="btn dark" id="setBase2" data-t="live.base.btn"></button><span class="small" id="baseTxt"></span></div>
+    </div>
   </details>
 </main>
 <div class="toast" id="toast"></div>
@@ -500,7 +508,7 @@ async function makeTwin3D(container){
       model = m;
       if (!built || built.nx !== m.grid.x || built.ny !== m.grid.y) build(m.grid.x, m.grid.y);
       const o = cellOverlay(m), key = JSON.stringify(o); if (key !== cellKey){ cellKey = key; paint(o); }
-      tintTarget.setHex(COL[m.state] || COL.nodata); tintOpacity = (m.state==="nodata"||m.state==="offline"||m.state==="setup") ? 0.55 : 0.2;
+      tintTarget.setHex(COL[m.state] || COL.nodata); tintOpacity = (m.state==="nodata"||m.state==="offline"||m.state==="setup") ? 0.55 : 0.42;
       lightTarget = m.light==null ? 0.2 : Math.max(0.05, m.light/100); syncLabels();
     }};
 }
@@ -519,7 +527,7 @@ function makeTwinSvg(wrap){
       o.shaded.forEach(([c,r]) => s += `<rect x="${pxl+c*cw+2}" y="${pyt+r*ch+2}" width="${cw-4}" height="${ch-4}" rx="3" fill="#060A16" opacity=".66"/>`);
       o.regions.forEach(([c,r]) => s += `<rect x="${pxl+c*cw+1}" y="${pyt+r*ch+1}" width="${cw-2}" height="${ch-2}" fill="#060A16" opacity=".5" stroke="#E39B00" stroke-width="2"/>`);
       if (o.dust > 0) s += `<rect x="${pxl-4}" y="${pyt-4}" width="${pw+8}" height="${ph+8}" fill="#9C743A" opacity="${Math.min(0.7,o.dust*1.1)}"/>`;
-      s += `<rect x="${pxl-8}" y="${pyt-8}" width="${pw+16}" height="${ph+16}" rx="6" fill="${col}" opacity="${["nodata","offline","setup"].includes(m.state) ? 0.6 : 0.2}"/>`;
+      s += `<rect x="${pxl-8}" y="${pyt-8}" width="${pw+16}" height="${ph+16}" rx="6" fill="${col}" opacity="${["nodata","offline","setup"].includes(m.state) ? 0.6 : 0.4}"/>`;
       const jb = m.sim && m.sim.diode ? "#D03B2A" : "#2A3446", jt = m.sim && m.sim.joint ? "#D03B2A" : "#3C4658";
       s += `<rect x="${pxl+pw/2-22}" y="${pyt+ph+12}" width="44" height="22" rx="3" fill="${jb}"/>`;
       s += `<path d="M${pxl+pw/2} ${pyt+ph+34} C ${pxl+pw/2} ${pyt+ph+80}, ${pxl+pw+10} ${pyt+ph+40}, ${pxl+pw+70} ${pyt+ph+60}" stroke="#111827" stroke-width="4" fill="none"/>`;
@@ -556,31 +564,37 @@ function render(){
   $("offBanner").hidden = !off;
   if (off) $("offBanner").textContent = st.last_ts ? T("offline.banner",{t:clock(st.last_ts)}) : T("offline.never");
   // hero
-  const h = st.health, state = st.state;
-  $("scoreNum").textContent = h ? h.score : "-";
-  $("ringArc").setAttribute("stroke-dasharray", `${h ? 327*h.score/100 : 0} 327`);
+  const h = st.health, state = st.state, sm = st.simple;
+  const ringV = sm ? (sm.light_pct==null || !st.online ? null : Math.min(100, sm.light_pct)) : (h ? h.score : null);
+  $("scoreNum").textContent = ringV==null ? "-" : (sm ? Math.round(ringV)+"%" : Math.round(ringV));
+  $("scoreLbl").textContent = T(sm ? "simple.ring" : "score.title");
+  $("ringArc").setAttribute("stroke-dasharray", `${ringV==null ? 0 : 327*ringV/100} 327`);
   $("ringArc").setAttribute("stroke", HEX(COL[state]||COL.nodata));
   $("condWord").className = "cw st-" + state; $("condWord").textContent = T(st.status_key);
   const top = st.diagnosis && st.diagnosis.top;
-  let sent = T("hero." + state);
-  if (st.diagnosis && state !== "healthy" && h) sent += " " + T("hero.cause",{x:T("f."+top)});
+  let sent = T(st.status_key==="live.s.wait" ? "hero.wait" : sm && (state==="healthy"||state==="attention"||state==="critical") ? "hero.simple." + state : "hero." + state);
+  if (st.diagnosis && !st.diagnosis.simple && state !== "healthy" && h) sent += " " + T("hero.cause",{x:T("f."+top)});
   $("condSent").textContent = sent;
-  $("trendTxt").textContent = h && h.previous != null ? `${T("score.prev",{x:h.previous})} · ${{up:"↑ "+T("trend.up"),down:"↓ "+T("trend.down"),flat:"→ "+T("trend.flat")}[h.trend]||""}` : (h ? "" : T("score.none"));
+  if (sm) $("trendTxt").textContent = sm.drop_pct!=null && st.online ? T("simple.drop",{x:nf(sm.drop_pct,0), full:sm.thresholds.full_ma}) + (sm.settling ? " · "+T("simple.settling") : "") : "";
+  else $("trendTxt").textContent = h && h.previous != null ? `${T("score.prev",{x:h.previous})} · ${{up:"↑ "+T("trend.up"),down:"↓ "+T("trend.down"),flat:"→ "+T("trend.flat")}[h.trend]||""}` : (h ? "" : T("score.none"));
   const chips = [];
   const rs = st.reading;
   if (rs && rs.state && !off) chips.push(`<span class="pill">${esc(T("live.st."+rs.state))}${rs.settled||rs.state==="sweep" ? "" : " · "+esc(T("live.st.settling"))}</span>`);
-  if (h && h.provisional) chips.push(badge("PROVISIONAL"));
-  if (st.diagnosis) chips.push(`<span class="pill ${st.diagnosis.certainty.level==="high"?"healthy":st.diagnosis.certainty.level==="moderate"?"attention":"grey"}">${esc(T("meter.certainty"))}: ${esc(T("cert."+st.diagnosis.certainty.level))}</span>`);
+  if ((h && h.provisional) || (sm && st.online)) chips.push(badge("PROVISIONAL"));
+  if (st.diagnosis && st.diagnosis.certainty) chips.push(`<span class="pill ${st.diagnosis.certainty.level==="high"?"healthy":st.diagnosis.certainty.level==="moderate"?"attention":"grey"}">${esc(T("meter.certainty"))}: ${esc(T("cert."+st.diagnosis.certainty.level))}</span>`);
   $("chips").innerHTML = chips.join(" ");
-  $("setupHint").hidden = !(live && st.online && state === "setup");
+  $("setupHint").hidden = !(live && st.online && state === "setup" && !sm);
+  $("guideBox").hidden = !(live && sm);
+  $("certMeter").hidden = !!sm; $("factorsWrap").hidden = !!sm;
   $("mLast").textContent = live ? (st.last_ts ? `${clock(st.last_ts)}${off ? "" : " (" + Math.round(st.age_s) + " s)"}` : "-") : clock(st.now);
   $("mConn").textContent = live ? (st.online ? T("meta.rate",{x:nf(st.rate,1)}) : T("conn.offline")) : T("conn.sim");
   $("mSrc").innerHTML = badge(live ? "REAL" : "SIMULATED") + " " + (live ? "" : "");
   const q = st.quality;
   $("qNum").textContent = q ? q.score + "%" : "-"; $("qBar").style.width = (q ? q.score : 0) + "%";
-  const cm = st.diagnosis ? Math.round(Math.min(1, st.diagnosis.certainty.margin/0.5)*100) : 0;
-  $("cNum").textContent = st.diagnosis ? T("cert."+st.diagnosis.certainty.level) : "-"; $("cBar").style.width = cm + "%";
-  $("factors").innerHTML = h && h.factors.length ? h.factors.map(f => `<li>${esc(T(f.key,f.p))}</li>`).join("") : `<li>${esc(h ? T("factors.none") : T("score.none"))}</li>`;
+  const dc = st.diagnosis && st.diagnosis.certainty;
+  const cm = dc ? Math.round(Math.min(1, dc.margin/0.5)*100) : 0;
+  $("cNum").textContent = dc ? T("cert."+dc.level) : "-"; $("cBar").style.width = cm + "%";
+  if (!sm) $("factors").innerHTML = h && h.factors.length ? h.factors.map(f => `<li>${esc(T(f.key,f.p))}</li>`).join("") : `<li>${esc(h ? T("factors.none") : T("score.none"))}</li>`;
   // twin
   const cap = st.twin.caption ? T(st.twin.caption) : "";
   $("twinCap").textContent = off ? T("twin.cap.off") : cap; $("twinCap").hidden = !(cap || off);
@@ -596,16 +610,18 @@ function renderPerf(){
   const stale = off ? T("tile.stale") : "";
   if (r && (live || st.mode==="sim")) {
     fill("V","V", r.v==null?null:nf(r.v,2), "V", b.voltage, off ? stale : (st.mode==="sim" ? T("perf.mpp") : ""));
-    fill("I","I", fmtI(r.ma_cal), "mA", b.current, off ? stale : (st.mode==="sim" ? T("perf.mpp") : (Math.abs(r.ma_cal) < 0.15 ? T("perf.noise") : "")));
+    const sm = st.simple;
+    fill("I","I", sm && sm.avg_ma!=null && !off ? nf(sm.avg_ma,2) : fmtI(r.ma_cal), "mA", b.current, off ? stale : (sm ? T("simple.cur.sub") : (st.mode==="sim" ? T("perf.mpp") : (Math.abs(r.ma_cal) < 0.15 ? T("perf.noise") : ""))));
     $("vP").innerHTML = r.p_mw==null ? "-" : `${nf(r.p_mw,2)} <small>mW</small>`; $("bP").innerHTML = badge(b.current);
     $("sP").textContent = r.p_mw==null ? "" : `${nf(r.p_mw/1000, 4)} W${off ? " · "+stale : ""}`; $("tP").classList.toggle("stale", off);
   } else { ["V","I","P"].forEach(k => { $("v"+k).textContent="-"; $("b"+k).innerHTML=""; $("s"+k).textContent=""; }); }
   const lp = S.light_pct;
   $("vL").innerHTML = lp==null || off ? "-" : `${nf(lp,0)} <small>%</small>`; $("bL").innerHTML = lp==null || off ? "" : badge(S.light_src==="ldr" ? "REAL" : (S.light_src==="sim" ? "SIMULATED" : b.current));
-  $("sL").textContent = lp==null || off ? "" : (S.light_src==="ldr" ? T("perf.light.ldr") : S.light_src==="sim" ? T("perf.light.sim") : T("perf.light.cur"));
+  $("sL").textContent = lp==null || off ? "" : (S.light_src==="ldr" ? T("perf.light.ldr") : S.light_src==="sim" ? T("perf.light.sim") : st.simple ? T("simple.light.sub") : T("perf.light.cur"));
   $("vT").innerHTML = S.temperature_fitted && !off ? `${nf(S.temperature,1)} <small>°C</small>` : `<small style="font-size:16px">${esc(T("notfitted"))}</small>`;
   $("bT").innerHTML = S.temperature_fitted && !off ? badge(b.temperature) : ""; $("sT").textContent = S.temperature_fitted ? "" : T("temp.nosensor");
   $("liveCharts").hidden = !live; $("simChart").hidden = live;
+  $("sessTitle").textContent = T(st.simple ? "perf.session.simple" : "perf.session");
   if (live) { drawLiveCharts(); } else if (st.sweep) drawSweep();
 }
 
@@ -626,7 +642,7 @@ function drawLiveCharts(){
 function drawSession(){
   const font = FONT(), X = hist.map(p => new Date(p.ts*1000));
   Plotly.react("chSession", [
-    {x:X, y:hist.map(p=>p.score), mode:"lines", name:T("score.title"), line:{color:"#0F1F3D", width:2}, connectgaps:false},
+    ...(st && st.simple ? [] : [{x:X, y:hist.map(p=>p.score), mode:"lines", name:T("score.title"), line:{color:"#0F1F3D", width:2}, connectgaps:false}]),
     {x:X, y:hist.map(p=>p.light), mode:"lines", name:T("perf.light")+" %", line:{color:"#E39B00", width:1.6, dash:"dot"}, connectgaps:false, yaxis:"y"}],
     {margin:{l:46,r:12,t:6,b:30}, paper_bgcolor:"#fff", plot_bgcolor:"#fff", font, showlegend:true, legend:{orientation:"h", y:1.15, font},
      xaxis:{tickformat:"%H:%M", gridcolor:"#EDF0F5", tickfont:font}, yaxis:{range:[0,110], gridcolor:"#EDF0F5", zeroline:false, tickfont:font}}, {displayModeBar:false, responsive:true});
@@ -642,11 +658,17 @@ function drawSweep(){
 
 function renderDx(){
   const d = st.diagnosis, live = st.mode === "live";
-  $("dxSrc").innerHTML = d ? badge(d.source==="REAL" ? "PHYSICS MODEL" : "SIMULATED") : "";
-  $("dxSub").textContent = d ? T(d.source==="REAL" ? "dx.sub.real" : "dx.sub.sim") : T(live && !st.online ? "dx.offline" : "dx.nodata");
-  $("dxBody").hidden = !d;
+  const simp = !!(d && d.simple);
+  $("dxSrc").innerHTML = d ? badge(simp ? "PROVISIONAL" : (d.source==="REAL" ? "PHYSICS MODEL" : "SIMULATED")) : "";
+  $("dxSub").textContent = d ? T(simp ? "dx.simple.sub" : (d.source==="REAL" ? "dx.sub.real" : "dx.sub.sim")) : T(live && !st.online ? "dx.offline" : "dx.nodata");
+  $("dxBody").hidden = !d; $("dxDetail").hidden = simp; $("dxNote").hidden = !simp; $("dxCap").hidden = !simp;
+  if (simp){
+    $("certBadge").innerHTML = ""; $("dxSpread").hidden = true;
+    $("bars").innerHTML = [["clear","dx.simple.clear"],["covered","dx.simple.covered"]].map(([k,t]) => `<div class="bar-r ${d.top===k?"top":""}"><span>${esc(T(t))}</span><span class="t"><i style="width:${(d.probs[k]*100).toFixed(1)}%"></i></span><b class="num" style="text-align:right">${nf(d.probs[k]*100,0)}%</b></div>`).join("");
+    return;
+  }
   if (!d){ ["bars","likely","others","tell","wcards"].forEach(i => $(i).innerHTML = ""); $("certBadge").innerHTML = ""; $("dxSpread").hidden = true; return; }
-  const cl = d.certainty.level;
+  const cl = d.certainty ? d.certainty.level : "insufficient";
   $("certBadge").innerHTML = `<span class="pill ${cl==="high"?"healthy":cl==="moderate"?"attention":"grey"}" title="${esc(T("cert.help"))}">${esc(T("meter.certainty"))}: ${esc(T("cert."+cl))}</span>`;
   const order = d.order;
   let html = order.map((c,i) => `<div class="bar-r ${i===0?"top":""}"><span>${esc(T("f."+c))}</span><span class="t"><i style="width:${(d.probs[c]*100).toFixed(1)}%"></i></span><b class="num" style="text-align:right">${nf(d.probs[c]*100,0)}%</b></div>`).join("");
@@ -671,7 +693,7 @@ function renderExp(){
 function renderMoney(){
   const m = st.money; $("moneyBadge").innerHTML = m ? badge(m.provisional ? "PROVISIONAL" : "SIMULATED") : "";
   $("mKwh").innerHTML = m ? `${nf(m.kwh_day,2)} <small>kWh</small>` : "-"; $("mDay").innerHTML = m ? `₹${nf(m.inr_day,1)}` : "-"; $("mYear").innerHTML = m ? `₹${nf(m.inr_year,0)}` : "-";
-  $("mNote").textContent = m ? `${T("live.scaled",{kwp:m.kwp})}. ${m.provisional ? T("money.prov") : ""}` : T("money.none");
+  $("mNote").textContent = m ? `${T("live.scaled",{kwp:m.kwp})}. ${st.simple ? T("simple.money.note",{full:m.full_ma}) : (m.provisional ? T("money.prov") : "")}` : T("money.none");
   $("acts").innerHTML = (st.actions||[]).map(a => `<li>${esc(T(a.key))}${a.inr_day ? ` <span class="small">(≈ ₹${nf(a.inr_day,1)} ${esc(T("live.perday"))})</span>` : ""}</li>`).join("") + `<li>${esc(T("act.remeasure"))}</li>`;
   $("alerts").innerHTML = alerts.length ? alerts.map(a => `<li>${badge("REAL")} <span class="small">${clock(a.ts)}</span> ${esc(a.text).replace(/\n/g,"<br>")}</li>`).join("") : `<li class="small">${esc(T("alerts.none"))}</li>`;
 }
@@ -683,7 +705,8 @@ function renderAdv(){
   if (st.points && st.points.voc) add("Voc point", `${nf(st.points.voc.v,3)} V`);
   if (st.baseline) add(T("base.title"), `${nf(st.baseline.isc_ma,2)} mA, ${nf(st.baseline.voc_v,3)} V`);
   $("advRaw").innerHTML = rows.join("");
-  $("advFeat").innerHTML = d ? Object.entries(d.features).map(([k,v]) => `<dt>${esc(k)}</dt><dd class="num">${v==null?"-":nf(v,4)}</dd>`).join("") + (d.pattern ? `<dt>${esc(T("adv.pattern",{x:T("pat."+d.pattern)}))}</dt><dd></dd>` : "") : "";
+  $("advFeat").innerHTML = d && d.features ? Object.entries(d.features).map(([k,v]) => `<dt>${esc(k)}</dt><dd class="num">${v==null?"-":nf(v,4)}</dd>`).join("") + (d.pattern ? `<dt>${esc(T("adv.pattern",{x:T("pat."+d.pattern)}))}</dt><dd></dd>` : "") : "";
+  if (st.simple) { $("advAssume").textContent = JSON.stringify({live_thresholds:st.simple.thresholds, state_raw_now:st.simple.raw_state, state_shown:st.simple.state, drop_pct:st.simple.drop_pct, avg_ma:st.simple.avg_ma, note:T("simple.money.note",{full:st.simple.thresholds.full_ma})}, null, 1); return; }
   $("advAssume").textContent = d && d.temporal_lr ? JSON.stringify({priors_assumed:d.priors, temporal_likelihood_ratios:d.temporal_lr, pattern_detail:d.pattern_detail, uses_reference_ldr:d.uses_ldr, base_probabilities_before_time_pattern:d.base_probs, note:T("adv.note")}, null, 1) : T("adv.none");
 }
 

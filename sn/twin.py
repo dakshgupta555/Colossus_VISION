@@ -10,7 +10,7 @@ import math
 
 import numpy as np
 
-from . import bench, calib, engine, health, profile as PR, realdx, sensors
+from . import bench, calib, engine, health, livemode, profile as PR, realdx, sensors
 
 OFFLINE_S = 10.0
 CLASSES_REAL = realdx.CLASSES
@@ -56,7 +56,8 @@ def _series_from_readings(readings, isc_base_cal, cal, now, window_s=600):
             if r.get("state") == "short" and now - r["ts"] <= window_s]
 
 
-def live(ctx):
+def live_baseline(ctx):
+    """The jumper/baseline live mode (kept; selected with mode=baseline in data/live_thresholds.json)."""
     now, rs, meta, bst, cal = ctx["now"], ctx["readings"], ctx.get("meta") or {}, ctx["bst"], ctx["cal"]
     prof, cfg = ctx["profile"], ctx["sensors_cfg"]
     last = rs[-1] if rs else None
@@ -134,6 +135,70 @@ def live(ctx):
         cap = "twin.cap.region"
     out["twin"] = _twin_block(st, light_pct if online else None, prof, rows, ana if ana["shaded"] else None, caption=cap)
     out["twin"]["regions"] = ana["shaded"] if online else []
+    return out
+
+
+def live(ctx):
+    """REAL data. Simple threshold mode by default; the baseline mode when data/live_thresholds.json says so."""
+    cfg = ctx.get("live_cfg") or livemode.load_cfg()
+    if cfg["mode"] == "baseline":
+        out = live_baseline(ctx)
+        out["mode_baseline"] = True
+        return out
+    return live_simple(ctx, cfg)
+
+
+def live_simple(ctx, cfg):
+    """No baseline, no jumper: 2 s average of the panel current -> green / amber / red, a % drop and rupees."""
+    now, rs, meta, cal, prof = ctx["now"], ctx["readings"], ctx.get("meta") or {}, ctx["cal"], ctx["profile"]
+    last = rs[-1] if rs else None
+    online = bool(last and now - last["ts"] <= OFFLINE_S)
+    avg, n = livemode.window_avg(rs, now, cfg["avg_s"], cal) if online else (None, 0)
+    raw_state = livemode.classify(avg, cfg)
+    snap = ctx.get("tracker") or {}
+    shown = snap.get("committed") or raw_state                   # what a person sees: held for hold_s
+    drop = livemode.drop_pct(avg, cfg)
+    light = livemode.light_pct(avg, cfg)
+    out = dict(mode="live", source="REAL", node_id="SN-001", now=now, online=online, last_ts=last["ts"] if last else None,
+               age_s=(now - last["ts"]) if last else None, rate=ctx.get("rate", 0.0), profile=dict(id=prof["id"], name=prof["name"], kwp=prof.get("kwp")),
+               calibration=cal, baseline=None, points=None, mode_baseline=False,
+               badges=dict(voltage="REAL", current=_badge_current(cal), light="PROVISIONAL", temperature="REAL", estimate="PROVISIONAL",
+                           money="PROVISIONAL", health="PROVISIONAL"))
+    if last:
+        ma_cal = calib.apply(last["ma"], cal)
+        out["reading"] = dict(v=last["v"], ma_raw=last["ma"], ma_cal=ma_cal, ts=last["ts"], live=online,
+                              p_mw=(last["v"] * ma_cal) if last["v"] is not None else None, state=None,
+                              settled=bool(meta.get("settled")) if online else False, spread=meta.get("spread"), raw_line=meta.get("raw"))
+    else:
+        out["reading"] = None
+    temp = last.get("temp_c") if (last and online) else None
+    out["sensors"] = dict(ldr=[], temperature=temp, temperature_fitted=temp is not None, ldr_fitted=False, light_pct=light if online else None,
+                          light_src="current" if online else None, current_pct=light, analysis=dict(shaded=[], pattern=None, have_ref=False, have_regions=False))
+    out["quality"] = health.data_quality(ctx.get("rate", 0.0), meta.get("spread"), cal["status"], online)
+    out["health"] = out["expected"] = out["cards"] = out["money"] = None
+    out["actions"] = []
+    out["diagnosis"] = None
+    simple = dict(active=True, avg_ma=avg, n=n, drop_pct=drop, light_pct=light, state=shown, raw_state=raw_state,
+                  settling=bool(snap.get("cand")), thresholds=dict(green_ma=cfg["green_ma"], amber_ma=cfg["amber_ma"], full_ma=cfg["full_ma"],
+                                                                  avg_s=cfg["avg_s"], hold_s=cfg["hold_s"]))
+    out["simple"] = simple
+    if not last:
+        out["state"], out["status_key"] = "nodata", "st.nodata"
+    elif not online:
+        out["state"], out["status_key"] = "offline", "st.offline"
+    elif avg is None:        # online (a reading in the last 10 s) but none in the 2 s window: never claim a live state
+        out["state"], out["status_key"] = "nodata", "live.s.wait"
+    else:
+        tw = livemode.STATE_TO_TWIN[shown]
+        out["state"], out["status_key"] = tw, "live.s." + shown
+        loss = (drop or 0.0) / 100.0
+        m = engine.money(loss, prof.get("kwp") or ctx["kwp"], ctx["yld"], ctx["tariff"])
+        out["money"] = dict(m, loss_pct=drop, kwp=prof.get("kwp") or ctx["kwp"], tariff=ctx["tariff"], provisional=True, full_ma=cfg["full_ma"])
+        out["diagnosis"] = dict(simple=True, source="REAL", probs=dict(clear=round(1 - loss, 3), covered=round(loss, 3)),
+                                order=["covered", "clear"] if shown != "green" else ["clear", "covered"], top="clear" if shown == "green" else "covered",
+                                certainty=None, features={}, pattern=None, base_probs=None, temporal_lr=None, priors=None, uses_ldr=False)
+        out["actions"] = [dict(cls=shown, key="act.simple." + shown, score=0, inr_day=m["inr_day"] if shown != "green" else None)]
+    out["twin"] = _twin_block(out["state"], light if online else None, prof, caption="twin.cap.simple")
     return out
 
 

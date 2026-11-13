@@ -495,11 +495,12 @@ def benchmark():
 
 
 # ---------------------------------------------------------------- owner view: Digital Twin & Health
-from sn import calib, health, profile as PROFILE, realdx, sensors as SENSORS, twin as TWIN
+from sn import calib, health, livemode, profile as PROFILE, realdx, sensors as SENSORS, twin as TWIN
 
 _session = collections.deque(maxlen=3600)      # (ts, score, light_pct) sampled by the watcher, for trend and session chart
 _alert_log = {}                                # level -> last alert time (max one per 60 s per level)
 _level = dict(shown=None)                      # state currently shown (hysteresis is applied against it)
+_tracker = livemode.Tracker()                  # simple live mode: green/amber/red, a new state must hold hold_s seconds
 NODE = "SN-001"
 
 
@@ -510,7 +511,8 @@ def _twin_ctx(tariff=C.DEFAULT_TARIFF, yld=C.DEFAULT_YIELD, kwp=C.DEFAULT_KWP):
         meta = dict(_tele_meta.get(NODE, {}))
     return dict(now=now, readings=rows, meta=meta, bst=_bench_eval(NODE, kwp, yld, tariff), cal=calib.load(),
                 profile=PROFILE.get(), sensors_cfg=SENSORS.load(), rate=_rate(rows, now), kwp=kwp, yld=yld, tariff=tariff,
-                hist=[(t, sc) for t, sc, _ in _session], prev_state=_level["shown"])
+                hist=[(t, sc) for t, sc, _ in _session], prev_state=_level["shown"],
+                live_cfg=livemode.load_cfg(), tracker=_tracker.snapshot())
 
 
 @app.get("/twin/state")
@@ -563,11 +565,47 @@ def _health_alert(v, prev, level):
     _event(NODE, "health", dict(level=level, previous=prev, score=(v.get("health") or {}).get("score"), text=text))
 
 
+def _live_alert(prev, state, avg, drop):
+    """Telegram + alerts list when the simple live state goes AMBER/RED or returns to GREEN. Max one per 30 s per state."""
+    now = time.time()
+    gap = livemode.load_cfg()["alert_gap_s"]
+    if now - _alert_log.get("live-" + state, 0) < gap:
+        return
+    _alert_log["live-" + state] = now
+    prof = PROFILE.get()
+    m = engine.money((drop or 0) / 100.0, prof.get("kwp") or C.DEFAULT_KWP, C.DEFAULT_YIELD, C.DEFAULT_TARIFF)
+    text = i18n.t(_settings()["lang"], "tg.live." + state,
+                  dict(node=NODE, ma=round(avg, 2) if avg is not None else "-", drop=round(drop or 0), inr=m["inr_day"], kwp=prof.get("kwp") or C.DEFAULT_KWP))
+    sent = alerts.send(text)
+    with _lock:
+        con = db()
+        con.execute("INSERT INTO alerts (ts, sweep_id, text, sent) VALUES (?,?,?,?)", (now, 0, text, int(sent)))
+        con.commit()
+        con.close()
+
+
 def _watch():
-    cand, streak, level = None, 0, None
+    cand, streak, level, last_health, last_rec = None, 0, None, 0.0, 0.0
     while True:
-        time.sleep(2)
+        time.sleep(0.2)                       # the simple state is re-evaluated 5 times a second
         try:
+            cfg = livemode.load_cfg()
+            now = time.time()
+            if cfg["mode"] == "simple":
+                with _lock:
+                    rows = list(_telemetry.get(NODE, ()))
+                online = bool(rows and now - rows[-1]["ts"] <= TWIN.OFFLINE_S)
+                avg, _ = livemode.window_avg(rows, now, cfg["avg_s"]) if online else (None, 0)
+                committed, changed, prev = _tracker.update(livemode.classify(avg, cfg), now, cfg["hold_s"])
+                if changed and prev is not None:
+                    _live_alert(prev, committed, avg, livemode.drop_pct(avg, cfg))
+                if now - last_rec >= 2.0:
+                    last_rec = now
+                    _session.append((now, None, livemode.light_pct(avg, cfg) if online else None))
+                continue
+            if now - last_health < 2.0:
+                continue
+            last_health = now
             v = TWIN.live(_twin_ctx())
             h = v.get("health")
             _session.append((v["now"], h["score"] if h else None, (v["sensors"] or {}).get("light_pct") if v["online"] else None))

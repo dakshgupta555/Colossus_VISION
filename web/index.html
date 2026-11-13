@@ -68,7 +68,7 @@ h2{font-size:15px;font-weight:700;margin:0 0 10px}
 .wi .p{height:200px}
 #lplot{height:400px} #trend{height:360px}
 .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:#F7F8FA;border:1px solid var(--line2);border-radius:6px;padding:4px 8px;display:inline-block}
-#liveView>.card{margin-bottom:14px}
+#liveView>.card,#liveAdvBody>.card{margin-bottom:14px}
 @media (max-width:900px){.lverdict .figs,.wi{grid-template-columns:1fr}}
 .realtag{font-size:12px;font-weight:700;padding:3px 9px;border-radius:5px;color:var(--ok);background:var(--ok-soft);border:1px solid #BFE0CD}
 .chip{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:5px;border:1px solid var(--line);color:var(--ink2);background:#F7F8FA;white-space:nowrap}
@@ -271,6 +271,19 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
   </div>
 
   <div id="liveView" hidden>
+    <div class="card lverdict" id="simpleLive">
+      <div class="row"><b data-t="live.simple.title"></b><span class="realtag" data-t="tag.real"></span><span class="chip" id="slChip"></span></div>
+      <h1 id="slStatus" style="font-size:30px;margin:8px 0 2px"></h1>
+      <p class="small" id="slDropTxt" style="margin:0 0 8px"></p>
+      <div class="figs" style="grid-template-columns:repeat(3,1fr)">
+        <div class="fig"><div class="k" data-t="perf.i"></div><div class="v num" id="slCur">-</div><div class="s" data-t="simple.cur.sub"></div></div>
+        <div class="fig"><div class="k" data-t="simple.drop.k"></div><div class="v num" id="slDrop">-</div><div class="meter"><i id="slBar"></i></div><div class="s" id="slDropS"></div></div>
+        <div class="fig"><div class="k"><span data-t="live.money"></span> <span class="chip" style="font-size:10px;padding:1px 6px" data-t="badge.PROVISIONAL"></span></div><div class="v num" id="slMoney">-</div><div class="s" id="slMoneyS"></div></div>
+      </div>
+      <p style="margin:12px 0 0;font-size:14px"><b data-t="simple.guide.title"></b>: <span data-t="simple.guide"></span></p>
+    </div>
+    <details class="card eng" id="liveAdv"><summary data-t="live.adv"></summary>
+    <div id="liveAdvBody" style="margin-top:12px">
     <div class="card lctl">
       <span class="chip" id="lvState"></span><span class="small" id="lvStateD"></span>
       <div class="grow"></div>
@@ -312,6 +325,7 @@ body.drawer #shade{display:block} body.drawer #drawer{transform:none}
         </div>
       </div>
     </div>
+    </div></details>
     <div class="card">
       <div class="row"><h2 style="margin:0" data-t="live.trend.title"></h2><span class="realtag" data-t="tag.real"></span></div>
       <div id="trend"></div>
@@ -539,7 +553,7 @@ function setMode(m){ mode = m;
 $("mLive").onclick = () => setMode("live"); $("mBench").onclick = () => setMode("bench");
 $("viewBack").onclick = () => { if (back==="fleet") { setMode("bench"); showTab("fleet"); } else if (back==="log") { setMode("bench"); showTab("log"); } else setMode("bench"); };
 /* ---------- live bench: real readings from SN-001 (telemetry + /bench), never a simulated sweep ---------- */
-let lkind = "iv", tele = null, bst = null, curves = null, curvesKey = "", bevents = [], liveTick = 0, wiKey = "";
+let lkind = "iv", sst = null, tele = null, bst = null, curves = null, curvesKey = "", bevents = [], liveTick = 0, wiKey = "";
 const FIND_LAB = {"finding.ok":"healthy","finding.light":"less_light","finding.voltage":"voltage_loss","finding.unclear":"unclear"};
 const sgn = x => (x==null||isNaN(x)) ? "-" : (x>=0?"+":"") + nf(x,1);
 const FONT = () => ({family:getComputedStyle(document.body).fontFamily, size:12.5, color:"#44505C"});
@@ -563,9 +577,9 @@ async function pollLive(){
   liveTick++;
   try {
     const q = `node_id=SN-001&kwp=${encodeURIComponent($("kwp").value)}&tariff=${encodeURIComponent($("tariff").value)}`;
-    const [t, st] = await Promise.all([fetch("/telemetry?node_id=SN-001").then(r=>r.json()), fetch("/bench/status?"+q).then(r=>r.json())]);
+    const [t, st, ss] = await Promise.all([fetch("/telemetry?node_id=SN-001").then(r=>r.json()), fetch("/bench/status?"+q).then(r=>r.json()), fetch("/twin/state?tariff="+encodeURIComponent($("tariff").value)).then(r=>r.json())]);
     if (mode!=="live") return;
-    tele = t; bst = st;
+    tele = t; bst = st; sst = ss;
     const key = [st.baseline&&st.baseline.ts, st.short&&st.short.ma.toFixed(1), st.open&&st.open.v.toFixed(2)].join("|");
     if (key !== curvesKey) { curvesKey = key; curves = await fetch("/bench/curves?node_id=SN-001").then(r=>r.json()); }
     if (liveTick % 3 === 1) bevents = await fetch("/bench/events?node_id=SN-001&limit=60").then(r=>r.json());
@@ -580,7 +594,7 @@ $("lkPV").onclick = () => { lkind="pv"; $("lkPV").classList.add("on"); $("lkIV")
 function renderLive(){
   if (!tele || !bst) return;
   const rs = tele.readings, last = rs[rs.length-1], age = last ? tele.now - last.ts : null;
-  drawStrip(tele);
+  drawStrip(tele); renderSimple(sst);
   if (!last) setNode("tele_none", 0, "SN-001"); else if (age <= 10) setNode("tele", age, "SN-001"); else setNode("tele_stale", age, "SN-001");
   // state chip: Short / Open / Load / Dark, from the bridge's 3 s rolling average
   const m = tele.meta || {}, fresh = last && age <= 10 && m.state, chip = $("lvState");
@@ -611,8 +625,23 @@ function renderLive(){
   if (tab==="diag") { drawLiveChart(); drawWhatif(); drawTrend(); }
 }
 
+function renderSimple(s){
+  const sm = s && s.simple; $("simpleLive").hidden = !sm;
+  if (!sm) { if (s && !renderSimple.opened) { renderSimple.opened = true; $("liveAdv").open = true; } return; }
+  const on = s.online, cls = {healthy:"ok", attention:"warn", critical:"bad"}[s.state] || "";
+  $("slChip").className = "chip " + cls; $("slChip").textContent = T(s.status_key);
+  $("slStatus").textContent = T(s.status_key); $("slStatus").style.color = on ? {ok:"#1F7A4D",warn:"#A66A00",bad:"#C4321C"}[cls] : "#6E7985";
+  $("slDropTxt").textContent = on && sm.drop_pct!=null ? T("simple.drop",{x:nf(sm.drop_pct,0), full:sm.thresholds.full_ma}) + (sm.settling ? " · " + T("simple.settling") : "") : "";
+  $("slCur").innerHTML = on && sm.avg_ma!=null ? `${nf(sm.avg_ma,2)} <small>mA</small>` : "-";
+  $("slDrop").textContent = on && sm.drop_pct!=null ? nf(sm.drop_pct,0)+"%" : "-"; $("slBar").style.width = on && sm.drop_pct!=null ? sm.drop_pct+"%" : "0";
+  $("slDropS").textContent = T("simple.drop.sub",{full:sm.thresholds.full_ma});
+  $("slMoney").innerHTML = on && s.money ? `₹${nf(s.money.inr_day,1)} <small>${T("live.perday")}</small>` : "-";
+  $("slMoneyS").textContent = s.money ? T("live.scaled",{kwp:s.money.kwp}) + ". " + T("simple.money.note",{full:s.money.full_ma}) : "";
+}
+$("liveAdv").addEventListener("toggle", () => { if ($("liveAdv").open) { drawLiveChart(); drawWhatif(true); } });
+
 function drawLiveChart(){
-  if (mode!=="live" || tab!=="diag" || !curves) return;
+  if (mode!=="live" || tab!=="diag" || !curves || !$("liveAdv").open) return;
   const b = curves.baseline, n = curves.now, P = lkind==="pv", font = FONT();
   $("lplotMsg").hidden = !!(b || n); $("lplot").hidden = !(b || n);
   if (!(b || n)) { $("lplotMsg").textContent = T("live.chart.wait"); $("lcLost").textContent = ""; return; }
@@ -642,7 +671,7 @@ function drawLiveChart(){
 function drawWhatif(force){
   const w = curves && curves.whatif;
   $("wiNone").hidden = !!w; $("wiGrid").hidden = !w;
-  if (!w || mode!=="live" || tab!=="diag") { if (!w) wiKey = ""; return; }
+  if (!w || mode!=="live" || tab!=="diag" || !$("liveAdv").open) { if (!w) wiKey = ""; return; }
   $("wiNote").textContent = T("live.wi.note",{x:w.loss_pct}); $("wiUnreach").hidden = w.shade_reached;
   const key = w.loss_pct + "|" + LANG; if (!force && key === wiKey) return; wiKey = key;
   const font = {...FONT(), size:11.5}, h = w.healthy;
