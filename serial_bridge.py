@@ -67,8 +67,9 @@ class Window:
         self.state, self.since = None, 0.0
 
     def add(self, t, v, ma):
-        if v is not None and self.buf:
-            mv = statistics.fmean(x[1] for x in self.buf)
+        prev_v = [x[1] for x in self.buf if x[1] is not None]         # a reading can arrive without a voltage (started mid-block)
+        if v is not None and prev_v:
+            mv = statistics.fmean(prev_v)
             mi = statistics.fmean(x[2] for x in self.buf)
             if abs(v - mv) > JUMP_V or abs(ma - mi) > JUMP_MA:
                 self.buf.clear()                 # the jumper moved: forget the old values
@@ -183,7 +184,13 @@ def main():
                 if not m:
                     continue
                 ma, t = float(m.group(1)), time.time()
-                w = win.add(t, v, ma)
+                try:
+                    w = win.add(t, v, ma)
+                except Exception as exc:                  # never let one odd reading kill the bridge
+                    print(f"bad reading skipped ({exc.__class__.__name__}: {exc}); window reset", flush=True)
+                    win = Window()
+                    v = None
+                    continue
                 n += 1
                 fresh = lambda t0: t - t0 < 5.0          # an old LDR/temperature value is dropped, never reused
                 ldr_list = [ldr.get(i) for i in range(max(ldr) + 1)] if ldr and fresh(ldr_t) else None
